@@ -66,7 +66,7 @@ async function handleSearch() {
         
         setTimeout(() => {
             showStatus('success', 'İşlem Tamamlandı! 🎉', 
-                `${result.totalImages} adet banner başarıyla indirildi`);
+                `${result.totalImages} adet banner başarıyla bulundu`);
             
             // Load and display images
             loadDownloadedImages(result.images);
@@ -153,16 +153,32 @@ function createImageCard(image, index) {
     imageWrapper.className = 'image-wrapper';
     
     const img = document.createElement('img');
-    img.src = image.path;
+    img.src = image.url;
     img.alt = image.name;
     img.loading = 'lazy';
+    img.crossOrigin = 'anonymous';
     
     // Add error handler
     img.onerror = () => {
         img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"%3E%3Crect fill="%231a1a1a" width="400" height="300"/%3E%3Ctext fill="%23707070" font-family="Arial" font-size="18" x="50%25" y="50%25" text-anchor="middle"%3EGörsel yüklenemedi%3C/text%3E%3C/svg%3E';
     };
     
+    // Download button overlay
+    const downloadBtn = document.createElement('button');
+    downloadBtn.className = 'download-btn';
+    downloadBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 3V16M12 16L16 12M12 16L8 12M3 21H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>İndir</span>
+    `;
+    downloadBtn.onclick = (e) => {
+        e.stopPropagation();
+        downloadImage(image);
+    };
+    
     imageWrapper.appendChild(img);
+    imageWrapper.appendChild(downloadBtn);
     
     const info = document.createElement('div');
     info.className = 'image-info';
@@ -183,19 +199,107 @@ function createImageCard(image, index) {
         <span>${image.width}×${image.height}</span>
     `;
     
+    const source = document.createElement('div');
+    source.className = 'image-source';
+    source.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M2 12H22" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>${image.domain}</span>
+    `;
+    
     meta.appendChild(dimension);
+    meta.appendChild(source);
     info.appendChild(title);
     info.appendChild(meta);
     
     card.appendChild(imageWrapper);
     card.appendChild(info);
     
-    // Add click handler to open image
+    // Add click handler to preview image
     card.addEventListener('click', () => {
-        window.open(image.path, '_blank');
+        previewImage(image);
     });
     
     return card;
+}
+
+// Download image function
+async function downloadImage(image) {
+    try {
+        showNotification(`"${image.name}" indiriliyor...`, 'info');
+        
+        const response = await fetch(image.url);
+        const blob = await response.blob();
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = image.name;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        
+        showNotification(`✅ "${image.name}" başarıyla indirildi!`, 'success');
+    } catch (error) {
+        console.error('Download error:', error);
+        showNotification(`❌ İndirme hatası: ${error.message}`, 'error');
+    }
+}
+
+// Preview image in modal
+function previewImage(image) {
+    const modal = document.createElement('div');
+    modal.className = 'image-modal';
+    modal.innerHTML = `
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <button class="modal-close">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            <img src="${image.url}" alt="${image.name}" crossorigin="anonymous">
+            <div class="modal-info">
+                <h3>${image.name}</h3>
+                <p>${image.width}×${image.height} • ${image.domain}</p>
+                <button class="modal-download-btn" onclick="downloadImage(${JSON.stringify(image).replace(/"/g, '&quot;')})">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 3V16M12 16L16 12M12 16L8 12M3 21H21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    İndir
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close handlers
+    const closeBtn = modal.querySelector('.modal-close');
+    const overlay = modal.querySelector('.modal-overlay');
+    
+    const closeModal = () => {
+        modal.classList.add('closing');
+        setTimeout(() => modal.remove(), 300);
+    };
+    
+    closeBtn.onclick = closeModal;
+    overlay.onclick = closeModal;
+    
+    // ESC key to close
+    const handleEsc = (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+            document.removeEventListener('keydown', handleEsc);
+        }
+    };
+    document.addEventListener('keydown', handleEsc);
+    
+    // Animate in
+    setTimeout(() => modal.classList.add('active'), 10);
 }
 
 // Hide empty state
@@ -208,8 +312,26 @@ function showNotification(message, type = 'info') {
     // Simple console notification for now
     console.log(`[${type.toUpperCase()}]: ${message}`);
     
-    // You can implement a toast notification here
-    // For example, using a library like Toastify or creating a custom toast
+    // Create toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    toast.innerHTML = `
+        <span class="toast-icon">${icon}</span>
+        <span class="toast-message">${message}</span>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // Demo mode - for testing without backend
