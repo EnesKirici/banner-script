@@ -9,10 +9,14 @@ const resultsSection = document.getElementById('resultsSection');
 const resultsGrid = document.getElementById('resultsGrid');
 const resultsCount = document.getElementById('resultsCount');
 const emptyState = document.getElementById('emptyState');
+const movieSelectionSection = document.getElementById('movieSelectionSection');
+const movieSelectionGrid = document.getElementById('movieSelectionGrid');
 
 // State
 let isProcessing = false;
 let downloadedImages = [];
+let movieSearchResults = [];
+let selectedMovieId = null;
 
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);
@@ -35,18 +39,246 @@ async function handleSearch() {
         return;
     }
 
+    // Virgül ile ayrılmış birden fazla film kontrolü
+    const movieList = movieNames.split(',').map(m => m.trim()).filter(Boolean);
+    
+    // Tek film için arama yap
+    if (movieList.length === 1) {
+        await searchAndShowResults(movieList[0]);
+    } else {
+        // Birden fazla film için direkt indir
+        await downloadBanners(movieNames);
+    }
+}
+
+// Film arama ve sonuçları gösterme
+async function searchAndShowResults(movieName) {
+    isProcessing = true;
+    searchBtn.disabled = true;
+    hideMovieSelection();
+    hideEmptyState();
+    
+    showStatus('loading', 'Arama Yapılıyor...', `"${movieName}" için sonuçlar getiriliyor...`);
+    
+    try {
+        const response = await fetch('/api/search-movies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ query: movieName })
+        });
+
+        if (!response.ok) {
+            throw new Error('Arama başarısız oldu');
+        }
+
+        const result = await response.json();
+        
+        hideStatus();
+        
+        if (result.results && result.results.length > 1) {
+            // Birden fazla sonuç varsa seçim ekranını göster
+            showMovieSelection(result.results, movieName);
+        } else if (result.results && result.results.length === 1) {
+            // Tek sonuç varsa direkt indir
+            const movieId = result.results[0].movieId;
+            await downloadBannersForMovie(movieId, movieName);
+        } else {
+            showNotification('Film bulunamadı', 'error');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        hideStatus();
+        showNotification('Arama sırasında bir hata oluştu', 'error');
+    } finally {
+        isProcessing = false;
+        searchBtn.disabled = false;
+    }
+}
+
+// Film seçim ekranını göster
+function showMovieSelection(results, searchQuery) {
+    movieSearchResults = results;
+    movieSelectionGrid.innerHTML = '';
+    
+    // Film ve dizileri ayır
+    const tvSeries = results.filter(r => r.type === 'TV Series');
+    const movies = results.filter(r => r.type === 'Movie');
+    const others = results.filter(r => r.type !== 'TV Series' && r.type !== 'Movie');
+    
+    let cardIndex = 0;
+    
+    // Dizileri ekle
+    if (tvSeries.length > 0) {
+        const tvHeader = document.createElement('div');
+        tvHeader.className = 'category-header';
+        tvHeader.innerHTML = `
+            <h4>📺 Diziler</h4>
+            <span class="category-count">${tvSeries.length} sonuç</span>
+        `;
+        movieSelectionGrid.appendChild(tvHeader);
+        
+        tvSeries.forEach((movie) => {
+            const card = createMovieCard(movie, cardIndex++);
+            movieSelectionGrid.appendChild(card);
+        });
+    }
+    
+    // Filmleri ekle
+    if (movies.length > 0) {
+        const movieHeader = document.createElement('div');
+        movieHeader.className = 'category-header';
+        movieHeader.innerHTML = `
+            <h4>🎬 Filmler</h4>
+            <span class="category-count">${movies.length} sonuç</span>
+        `;
+        movieSelectionGrid.appendChild(movieHeader);
+        
+        movies.forEach((movie) => {
+            const card = createMovieCard(movie, cardIndex++);
+            movieSelectionGrid.appendChild(card);
+        });
+    }
+    
+    // Diğerlerini ekle (eğer varsa)
+    if (others.length > 0) {
+        const otherHeader = document.createElement('div');
+        otherHeader.className = 'category-header';
+        otherHeader.innerHTML = `
+            <h4>🎮 Diğer</h4>
+            <span class="category-count">${others.length} sonuç</span>
+        `;
+        movieSelectionGrid.appendChild(otherHeader);
+        
+        others.forEach((movie) => {
+            const card = createMovieCard(movie, cardIndex++);
+            movieSelectionGrid.appendChild(card);
+        });
+    }
+    
+    movieSelectionSection.classList.remove('hidden');
+    
+    // Smooth scroll
+    setTimeout(() => {
+        movieSelectionSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+}
+
+// Film kartı oluştur
+function createMovieCard(movie, index) {
+    const card = document.createElement('div');
+    card.className = 'movie-card';
+    card.style.animationDelay = `${index * 0.05}s`;
+    card.dataset.movieId = movie.movieId;
+    
+    const posterHtml = movie.poster 
+        ? `<img src="${movie.poster}" alt="${movie.movieTitle}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'movie-poster-placeholder\\'><svg viewBox=\\'0 0 24 24\\' fill=\\'none\\'><rect x=\\'3\\' y=\\'3\\' width=\\'18\\' height=\\'18\\' rx=\\'2\\' stroke=\\'currentColor\\' stroke-width=\\'2\\'/><path d=\\'M3 9h18M9 21V9\\' stroke=\\'currentColor\\' stroke-width=\\'2\\'/></svg></div>'">`
+        : `<div class="movie-poster-placeholder">
+            <svg viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M3 9h18M9 21V9" stroke="currentColor" stroke-width="2"/>
+            </svg>
+           </div>`;
+    
+    card.innerHTML = `
+        <div class="movie-poster">
+            ${posterHtml}
+        </div>
+        <div class="movie-card-check">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="movie-info">
+            <h4 class="movie-title">${movie.movieTitle}</h4>
+            <div class="movie-meta">
+                ${movie.year ? `<span class="movie-year">📅 ${movie.year}</span>` : ''}
+                ${movie.type ? `<span class="movie-type">${movie.type}</span>` : ''}
+            </div>
+        </div>
+    `;
+    
+    card.addEventListener('click', () => handleMovieSelection(movie, card));
+    
+    return card;
+}
+
+// Film seçimi işle
+async function handleMovieSelection(movie, cardElement) {
+    // Önceki seçimi kaldır
+    document.querySelectorAll('.movie-card').forEach(c => c.classList.remove('selected'));
+    
+    // Yeni seçimi ekle
+    cardElement.classList.add('selected');
+    selectedMovieId = movie.movieId;
+    
+    // Kısa bekleme sonrası banner indir
+    setTimeout(() => {
+        downloadBannersForMovie(movie.movieId, movie.movieTitle);
+    }, 500);
+}
+
+// Seçilen film için banner indir
+async function downloadBannersForMovie(movieId, movieTitle) {
+    hideMovieSelection();
     isProcessing = true;
     searchBtn.disabled = true;
     
-    // Show status section
-    showStatus('loading', 'İşlem Başladı', 'Filmler aranıyor ve bannerlar indiriliyor...');
-    hideEmptyState();
-    
-    // Simulate progress (since we can't get real progress from the script)
+    showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için bannerlar indiriliyor...`);
     simulateProgress();
 
     try {
-        // Call the banner downloader script
+        // Yeni endpoint ile movieId kullanarak indir
+        const response = await fetch('/api/download-by-id', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                movieId: movieId,
+                movieTitle: movieTitle 
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('İndirme işlemi başarısız oldu');
+        }
+
+        const result = await response.json();
+        
+        progressFill.style.width = '100%';
+        
+        setTimeout(() => {
+            showStatus('success', 'İşlem Tamamlandı! 🎉', 
+                `${result.totalImages} adet banner başarıyla bulundu`);
+            
+            loadDownloadedImages(result.images);
+        }, 500);
+
+    } catch (error) {
+        console.error('Error:', error);
+        showStatus('error', 'Hata Oluştu', 
+            'Banner indirme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+        isProcessing = false;
+        searchBtn.disabled = false;
+    }
+}
+
+// Banner indirme (birden fazla film için)
+async function downloadBanners(movieNames) {
+    isProcessing = true;
+    searchBtn.disabled = true;
+    hideMovieSelection();
+    
+    showStatus('loading', 'İşlem Başladı', 'Filmler aranıyor ve bannerlar indiriliyor...');
+    hideEmptyState();
+    
+    simulateProgress();
+
+    try {
         const response = await fetch('/api/download', {
             method: 'POST',
             headers: {
@@ -61,14 +293,12 @@ async function handleSearch() {
 
         const result = await response.json();
         
-        // Show success
         progressFill.style.width = '100%';
         
         setTimeout(() => {
             showStatus('success', 'İşlem Tamamlandı! 🎉', 
                 `${result.totalImages} adet banner başarıyla bulundu`);
             
-            // Load and display images
             loadDownloadedImages(result.images);
         }, 500);
 
@@ -80,6 +310,19 @@ async function handleSearch() {
         isProcessing = false;
         searchBtn.disabled = false;
     }
+}
+
+// Film seçim ekranını gizle
+function hideMovieSelection() {
+    movieSelectionSection.classList.add('hidden');
+    movieSelectionGrid.innerHTML = '';
+    movieSearchResults = [];
+    selectedMovieId = null;
+}
+
+// Status gizle
+function hideStatus() {
+    statusSection.classList.add('hidden');
 }
 
 // Simulate progress animation

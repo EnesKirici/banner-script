@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { downloadBanners } from './banner-downloader-api.js';
+import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId } from './banner-downloader-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +16,79 @@ app.use(express.static('resources/css'));
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
+});
+
+// Search movies endpoint - birden fazla sonuç döndür
+app.post('/api/search-movies', async (req, res) => {
+    const { query } = req.body;
+    
+    if (!query) {
+        return res.status(400).json({ error: 'Film adı gerekli' });
+    }
+
+    console.log(`\n🔍 Arama isteği alındı: ${query}\n`);
+
+    try {
+        const result = await searchMoviesAPI(query);
+
+        console.log(`\n✅ ${result.results.length} adet sonuç bulundu\n`);
+
+        res.json({
+            success: true,
+            query: result.query,
+            count: result.results.length,
+            results: result.results
+        });
+
+    } catch (error) {
+        console.error('❌ Error:', error);
+        res.status(500).json({ 
+            error: 'Arama sırasında bir hata oluştu',
+            details: error.message 
+        });
+    }
+});
+
+// Download banners by movie ID endpoint
+app.post('/api/download-by-id', async (req, res) => {
+    const { movieId, movieTitle } = req.body;
+    
+    if (!movieId || !movieTitle) {
+        return res.status(400).json({ error: 'Film ID ve başlığı gerekli' });
+    }
+
+    console.log(`\n🎬 ID ile istek alındı: ${movieTitle} (${movieId})\n`);
+
+    try {
+        const result = await downloadBannersByMovieId(movieId, movieTitle);
+
+        console.log(`\n✅ API Response: ${result.totalImages} görsel bulundu\n`);
+
+        const images = result.images.map((img, index) => ({
+            id: index,
+            name: img.filename,
+            url: img.url,
+            width: img.width,
+            height: img.height,
+            movie: img.film,
+            domain: img.domain
+        }));
+
+        res.json({
+            success: true,
+            totalImages: result.totalImages,
+            images,
+            message: `${result.totalImages} adet banner bulundu`,
+            movies: result.movies
+        });
+
+    } catch (error) {
+        console.error('❌ Error:', error);
+        res.status(500).json({ 
+            error: 'Bir hata oluştu',
+            details: error.message 
+        });
+    }
 });
 
 // Download banners endpoint
