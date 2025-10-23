@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Banner Downloader - Modern Film Banner Arayıcı</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6Z" stroke="currentColor" stroke-width="2"/>
+                        <path d="M8 4V20M16 4V20M4 12H20" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                </div>
+                <h1 class="logo-text">Banner<span>Downloader</span></h1>
+            </div>
+            <p class="subtitle">Film afişlerini ve bannerlarını hızlıca indirin</p>
+        </header>
+
+        <!-- Search Section -->
+        <section class="search-section">
+            <div class="search-container">
+                <div class="search-box">
+                    <div class="search-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <input 
+                        type="text" 
+                        id="movieInput" 
+                        placeholder="Film adını yazın (örn: Demon Slayer, Black Phone)" 
+                        autocomplete="off"
+                    />
+                    <button id="searchBtn" class="search-btn">
+                        <span class="btn-text">Ara ve İndir</span>
+                        <span class="btn-icon">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 12H20M20 12L14 6M20 12L14 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+                <p class="search-hint">
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Birden fazla film için virgül ile ayırın
+                </p>
+            </div>
+        </section>
+
+        <!-- Status Section -->
+        <section id="statusSection" class="status-section hidden">
+            <div class="status-container">
+                <div class="status-header">
+                    <div class="status-icon loading">
+                        <div class="spinner"></div>
+                    </div>
+                    <h3 id="statusTitle">İşlem Devam Ediyor...</h3>
+                </div>
+                <p id="statusMessage" class="status-message">Filmler aranıyor ve bannerlar indiriliyor...</p>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section -->
+        <section id="resultsSection" class="results-section hidden">
+            <div class="results-header">
+                <h2>İndirilen Bannerlar</h2>
+                <div id="resultsCount" class="results-count">0 görsel</div>
+            </div>
+            <div id="resultsGrid" class="results-grid">
+                <!-- Images will be dynamically added here -->
+            </div>
+        </section>
+
+        <!-- Empty State -->
+        <section id="emptyState" class="empty-state">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M3 8L10.89 13.26C11.5277 13.6728 12.4723 13.6728 13.11 13.26L21 8M5 19H19C20.1046 19 21 18.1046 21 17V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <h3>Henüz Banner İndirilmedi</h3>
+            <p>Yukarıdaki arama kutusuna bir film adı yazın ve aramaya başlayın</p>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Made with <span class="heart">♥</span> by Banner Downloader</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
