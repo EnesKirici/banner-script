@@ -81,7 +81,98 @@ async function checkImage(url, film, domain) {
   return null;
 }
 
-// --- IMDb'de filmi ara ve detay sayfasına git ---
+// --- IMDb'de filmi ara ve birden fazla sonuç döndür ---
+async function searchMovies(film, siteUrl) {
+  const query = encodeURIComponent(film);
+  const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  
+  console.log(`   🔍 "${film}" için IMDb'de arama yapılıyor...`);
+  
+  const searchUrl = `${siteUrl}/find?q=${query}&s=tt`;
+  
+  try {
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
+      'Referer': 'https://www.imdb.com/',
+    };
+    
+    console.log(`   📡 Aranıyor: ${searchUrl}`);
+    const res = await axios.get(searchUrl, { timeout: 15000, headers });
+    const $ = cheerio.load(res.data);
+    
+    const results = [];
+    const seen = new Set();
+    
+    // Tüm film/dizi sonuçlarını topla
+    $('li.find-result-item, li.ipc-metadata-list-summary-item').each((index, element) => {
+      if (results.length >= 10) return false; // Maksimum 10 sonuç
+      
+      const $el = $(element);
+      const link = $el.find('a[href*="/title/tt"]').first();
+      const moviePath = link.attr('href');
+      
+      if (!moviePath) return;
+      
+      const movieId = moviePath.match(/\/title\/(tt\d+)/)?.[1];
+      if (!movieId || seen.has(movieId)) return;
+      
+      seen.add(movieId);
+      
+      // Başlık ve yıl bilgisi
+      let movieTitle = link.text().trim();
+      let year = '';
+      let type = '';
+      let poster = '';
+      
+      // Yıl bilgisini bul
+      const yearMatch = $el.text().match(/\((\d{4})\)/);
+      if (yearMatch) {
+        year = yearMatch[1];
+      }
+      
+      // Tür bilgisi (TV Series, Movie, etc.)
+      const typeText = $el.find('.ipc-metadata-list-summary-item__li, .result_meta').text();
+      if (typeText.toLowerCase().includes('tv') || typeText.toLowerCase().includes('series')) {
+        type = 'TV Series';
+      } else if (typeText.toLowerCase().includes('video game')) {
+        type = 'Video Game';
+      } else {
+        type = 'Movie';
+      }
+      
+      // Poster görseli
+      const img = $el.find('img').first();
+      if (img.length) {
+        poster = img.attr('src') || img.attr('data-src') || '';
+        // Küçük görseli orta boyuta çevir
+        if (poster.includes('._V1_')) {
+          poster = poster.split('._V1_')[0] + '._V1_UX300_.jpg';
+        }
+      }
+      
+      results.push({
+        movieId,
+        movieTitle: movieTitle || 'Unknown',
+        year,
+        type,
+        poster,
+        movieUrl: `${siteUrl}/title/${movieId}/`
+      });
+    });
+    
+    console.log(`   ✅ ${results.length} adet sonuç bulundu`);
+    
+    return results;
+    
+  } catch (err) {
+    console.log(`   ❌ Arama hatası: ${err.message}`);
+    return [];
+  }
+}
+
+// --- IMDb'de filmi ara ve detay sayfasına git (tek sonuç) ---
 async function findMovieUrl(film, siteUrl) {
   const query = encodeURIComponent(film);
   const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
@@ -287,6 +378,121 @@ export async function downloadBanners(filmInput) {
 
   console.log("\n🏁 Tum islemler tamamlandi!\n");
   return results;
+}
+
+// --- Film ID'si ile banner indir ---
+export async function downloadBannersByMovieId(movieId, movieTitle) {
+  const sources = getSources();
+  
+  console.log(`\n🔍 "${movieTitle}" (${movieId}) için banner aranacak...\n`);
+
+  const results = {
+    totalImages: 0,
+    images: [],
+    movies: []
+  };
+
+  const siteStats = {};
+  let foundCount = 0;
+  const movieImages = [];
+
+  for (const site of sources) {
+    const domain = site.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    console.log(`🌐 ${domain} taranıyor...`);
+
+    // Movie ID'yi direkt kullan
+    const movieInfo = {
+      movieUrl: `${site}/title/${movieId}/`,
+      movieId: movieId,
+      movieTitle: movieTitle
+    };
+
+    // Filmin tüm görsellerini çek
+    const imgs = await getMovieImages(movieInfo, site);
+    
+    if (imgs.length === 0) {
+      console.log(`   ⚠️ Görsel bulunamadı`);
+      continue;
+    }
+
+    // Görselleri paralel kontrol et
+    const CONCURRENT_CHECKS = 3;
+    for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
+      const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
+      const batchResults = await Promise.allSettled(
+        batch.map(img => checkImage(img, movieTitle, domain))
+      );
+      
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          movieImages.push(result.value);
+          foundCount++;
+          siteStats[domain] = (siteStats[domain] || 0) + 1;
+        }
+      });
+      
+      if (i + CONCURRENT_CHECKS < imgs.length) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+    
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  if (foundCount === 0) {
+    console.log("⚠️ Uygun formatta banner bulunamadi.");
+  } else {
+    console.log(`🎉 ${foundCount} adet uygun banner bulundu.`);
+    console.log("📊 Kaynaklara göre dagilim:");
+    Object.entries(siteStats).forEach(([site, count]) => console.log(`   ${site}: ${count} görsel`));
+  }
+
+  results.movies.push({
+    name: movieTitle,
+    foundCount,
+    siteStats,
+    images: movieImages
+  });
+  results.images.push(...movieImages);
+  results.totalImages += foundCount;
+
+  console.log("\n🏁 İşlem tamamlandı!\n");
+  return results;
+}
+
+// --- Film arama fonksiyonu - birden fazla sonuç döndür ---
+export async function searchMoviesAPI(filmName) {
+  const sources = getSources();
+  
+  // İlk kaynaktan ara (genelde ilk kaynak IMDb olur)
+  const mainSource = sources[0];
+  
+  console.log(`\n🔍 "${filmName}" için arama yapılıyor...\n`);
+  
+  const results = await searchMovies(filmName, mainSource);
+  
+  // Popülerliğe göre sırala - ilk sonuçlar genelde daha popülerdir
+  // Ama title match olanları öne çıkar
+  results.sort((a, b) => {
+    // Tam eşleşme kontrolü
+    const aExactMatch = a.movieTitle.toLowerCase() === filmName.toLowerCase();
+    const bExactMatch = b.movieTitle.toLowerCase() === filmName.toLowerCase();
+    
+    if (aExactMatch && !bExactMatch) return -1;
+    if (!aExactMatch && bExactMatch) return 1;
+    
+    // Yıl kontrolü - yeni olanlar önce
+    if (a.year && b.year) {
+      return parseInt(b.year) - parseInt(a.year);
+    }
+    
+    return 0;
+  });
+  
+  return {
+    query: filmName,
+    results
+  };
 }
 
 // Eğer doğrudan çalıştırılıyorsa (command line'dan)
