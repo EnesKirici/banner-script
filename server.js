@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
+import { getCacheStats, clearCache } from './cache.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,24 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
 });
 
+// Cache istatistikleri endpoint
+app.get('/api/cache/stats', (req, res) => {
+    const stats = getCacheStats();
+    res.json({
+        success: true,
+        cache: stats
+    });
+});
+
+// Cache temizleme endpoint
+app.post('/api/cache/clear', (req, res) => {
+    clearCache();
+    res.json({
+        success: true,
+        message: 'Cache başarıyla temizlendi'
+    });
+});
+
 // Search movies endpoint - birden fazla sonuç döndür
 app.post('/api/search-movies', async (req, res) => {
     const { query } = req.body;
@@ -31,13 +50,14 @@ app.post('/api/search-movies', async (req, res) => {
     try {
         const result = await searchMoviesAPI(query);
 
-        console.log(`\n✅ ${result.results.length} adet sonuç bulundu\n`);
+        console.log(`\n✅ ${result.results.length} adet sonuç bulundu${result.fromCache ? ' (Cache\'den)' : ''}\n`);
 
         res.json({
             success: true,
             query: result.query,
             count: result.results.length,
-            results: result.results
+            results: result.results,
+            fromCache: result.fromCache || false
         });
 
     } catch (error) {
@@ -62,7 +82,7 @@ app.post('/api/download-by-id', async (req, res) => {
     try {
         const result = await downloadBannersByMovieId(movieId, movieTitle);
 
-        console.log(`\n✅ API Response: ${result.totalImages} görsel bulundu\n`);
+        console.log(`\n✅ API Response: ${result.totalImages} görsel bulundu${result.fromCache ? ' (Cache\'den)' : ''}\n`);
 
         const images = result.images.map((img, index) => ({
             id: index,
@@ -78,8 +98,9 @@ app.post('/api/download-by-id', async (req, res) => {
             success: true,
             totalImages: result.totalImages,
             images,
-            message: `${result.totalImages} adet banner bulundu`,
-            movies: result.movies
+            message: `${result.totalImages} adet banner bulundu${result.fromCache ? ' (Cache\'den)' : ''}`,
+            movies: result.movies,
+            fromCache: result.fromCache || false
         });
 
     } catch (error) {
@@ -135,20 +156,20 @@ app.post('/api/download', async (req, res) => {
     }
 });
 
-// Load more images endpoint - sayfalama için
+// Load more images endpoint
 app.post('/api/load-more-images', async (req, res) => {
-    const { movieId, movieTitle, page } = req.body;
+    const { movieId, movieTitle } = req.body;
     
-    if (!movieId || !movieTitle || !page) {
-        return res.status(400).json({ error: 'Film ID, başlığı ve sayfa numarası gerekli' });
+    if (!movieId || !movieTitle) {
+        return res.status(400).json({ error: 'Film ID ve başlığı gerekli' });
     }
 
-    console.log(`\n📄 Daha fazla yükle isteği: ${movieTitle} (${movieId}) - Sayfa ${page}\n`);
+    console.log(`\n📄 Daha fazla yükle isteği: ${movieTitle} (${movieId})\n`);
 
     try {
-        const result = await loadMoreImages(movieId, movieTitle, page);
+        const result = await loadMoreImages(movieId, movieTitle);
 
-        console.log(`\n✅ Sayfa ${page}: ${result.totalImages} görsel bulundu\n`);
+        console.log(`\n✅ ${result.totalImages} görsel bulundu\n`);
 
         const images = result.images.map((img, index) => ({
             id: index,
@@ -164,10 +185,9 @@ app.post('/api/load-more-images', async (req, res) => {
             success: true,
             totalImages: result.totalImages,
             images,
-            page: result.page,
             message: result.totalImages > 0 
-                ? `Sayfa ${page}: ${result.totalImages} adet yeni banner bulundu`
-                : `Sayfa ${page}'de yeni banner bulunamadı`
+                ? `✨ ${result.totalImages} adet yeni banner bulundu`
+                : `ℹ️ Yeni banner bulunamadı`
         });
 
     } catch (error) {

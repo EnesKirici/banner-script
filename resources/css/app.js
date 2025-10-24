@@ -18,7 +18,8 @@ let downloadedImages = [];
 let movieSearchResults = [];
 let selectedMovieId = null;
 let currentMovieTitle = null;
-let currentPage = 1;
+let currentScrollCount = 1; // Her yüklemede kaç kez kaydırma yapılacak
+let loadedImageUrls = new Set(); // Yüklenen görsel URL'lerini takip et (tekrar önleme)
 
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);
@@ -220,10 +221,11 @@ async function downloadBannersForMovie(movieId, movieTitle) {
     isProcessing = true;
     searchBtn.disabled = true;
     
-    // State'i güncelle
+    // State'i güncelle ve sıfırla
     selectedMovieId = movieId;
     currentMovieTitle = movieTitle;
-    currentPage = 1;
+    currentScrollCount = 1; // İlk yüklemede 1 kez kaydır
+    loadedImageUrls.clear(); // Önceki görselleri temizle
     
     showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için bannerlar indiriliyor...`);
     simulateProgress();
@@ -331,9 +333,25 @@ function loadDownloadedImages(images, append = false) {
         // Yeni sonuç, grid'i temizle
         downloadedImages = images;
         resultsGrid.innerHTML = '';
+        loadedImageUrls.clear();
+        
+        // Yüklenen URL'leri kaydet
+        images.forEach(img => loadedImageUrls.add(img.url));
     } else {
-        // Mevcut görsellere ekle
-        downloadedImages = [...downloadedImages, ...images];
+        // Tekrar eden görselleri filtrele
+        const newImages = images.filter(img => !loadedImageUrls.has(img.url));
+        
+        if (newImages.length === 0) {
+            console.log('Tüm görseller zaten yüklü, yeni görsel yok');
+            return;
+        }
+        
+        // Yeni görselleri ekle
+        newImages.forEach(img => loadedImageUrls.add(img.url));
+        downloadedImages = [...downloadedImages, ...newImages];
+        
+        // Filtrelenmiş listeyi kullan
+        images = newImages;
     }
     
     const startIndex = append ? downloadedImages.length - images.length : 0;
@@ -371,7 +389,7 @@ function updateLoadMoreButton() {
                 <path d="M12 5V19M12 19L19 12M12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <span class="btn-text">Daha Fazla Yükle</span>
-            <span class="page-indicator">(Sayfa 2)</span>
+            <span class="scroll-indicator">(Daha fazla kaydır)</span>
         `;
         loadMoreBtn.addEventListener('click', loadMoreImages);
         
@@ -379,10 +397,10 @@ function updateLoadMoreButton() {
         resultsSection.appendChild(loadMoreBtn);
     }
     
-    // Sayfa göstergesini güncelle
-    const pageIndicator = loadMoreBtn.querySelector('.page-indicator');
-    if (pageIndicator) {
-        pageIndicator.textContent = `(Sayfa ${currentPage + 1})`;
+    // Bilgilendirme metnini güncelle
+    const scrollIndicator = loadMoreBtn.querySelector('.scroll-indicator');
+    if (scrollIndicator) {
+        scrollIndicator.textContent = `(+${currentScrollCount} kez kaydırma)`;
     }
     
     // Butonu göster (eğer selectedMovieId varsa)
@@ -416,8 +434,9 @@ async function loadMoreImages() {
         btnText.textContent = 'Yükleniyor...';
     }
     
-    currentPage += 1;
-    console.log(`Loading page ${currentPage} for ${currentMovieTitle} (${selectedMovieId})`);
+    // Her tıklamada kaydırma sayısını artır (daha fazla içerik yüklemek için)
+    currentScrollCount += 1;
+    console.log(`Loading more images with ${currentScrollCount} scrolls for ${currentMovieTitle} (${selectedMovieId})`);
     
     try {
         const response = await fetch('/api/load-more-images', {
@@ -428,7 +447,7 @@ async function loadMoreImages() {
             body: JSON.stringify({ 
                 movieId: selectedMovieId,
                 movieTitle: currentMovieTitle,
-                page: currentPage
+                scrollCount: currentScrollCount
             })
         });
 
@@ -442,19 +461,27 @@ async function loadMoreImages() {
         console.log('Load more result:', result);
         
         if (result.totalImages > 0) {
-            // Yeni görselleri mevcut listeye ekle
+            // Yeni görselleri mevcut listeye ekle (filtrele)
+            const beforeCount = downloadedImages.length;
             loadDownloadedImages(result.images, true);
-            showNotification(`✨ ${result.totalImages} adet yeni görsel eklendi!`, 'success');
+            const afterCount = downloadedImages.length;
+            const newCount = afterCount - beforeCount;
+            
+            if (newCount > 0) {
+                showNotification(`✨ ${newCount} adet yeni görsel eklendi!`, 'success');
+                // Butonu güncelle
+                updateLoadMoreButton();
+            } else {
+                showNotification('ℹ️ Tüm görseller zaten yüklü, yeni görsel bulunamadı', 'info');
+            }
         } else {
             showNotification('ℹ️ Daha fazla görsel bulunamadı', 'info');
-            // Butonu gizle
-            loadMoreBtn.style.display = 'none';
         }
 
     } catch (error) {
         console.error('Load more error:', error);
         showNotification('❌ Daha fazla görsel yüklenirken hata oluştu', 'error');
-        currentPage -= 1; // Geri al
+        currentScrollCount -= 1; // Geri al
     } finally {
         isProcessing = false;
         loadMoreBtn.disabled = false;
@@ -601,21 +628,48 @@ function previewImage(image) {
     
     // Close handlers
     const closeBtn = modal.querySelector('.modal-close');
-    const overlay = modal.querySelector('.modal-overlay');
+    const modalContent = modal.querySelector('.modal-content');
+    const modalImage = modalContent.querySelector('img');
+    const modalInfo = modalContent.querySelector('.modal-info');
     
     const closeModal = () => {
         modal.classList.add('closing');
         setTimeout(() => modal.remove(), 300);
+        document.removeEventListener('keydown', handleEsc);
     };
     
-    closeBtn.onclick = closeModal;
-    overlay.onclick = closeModal;
+    // Close button handler
+    closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        closeModal();
+    };
+    
+    // Click on modal content (the wrapper) should close
+    modalContent.onclick = (e) => {
+        // Check if click was directly on modalContent (not on image or info)
+        if (e.target === modalContent) {
+            closeModal();
+        }
+    };
+    
+    // Prevent image clicks from closing
+    if (modalImage) {
+        modalImage.onclick = (e) => {
+            e.stopPropagation();
+        };
+    }
+    
+    // Prevent info section clicks from closing
+    if (modalInfo) {
+        modalInfo.onclick = (e) => {
+            e.stopPropagation();
+        };
+    }
     
     // ESC key to close
     const handleEsc = (e) => {
         if (e.key === 'Escape') {
             closeModal();
-            document.removeEventListener('keydown', handleEsc);
         }
     };
     document.addEventListener('keydown', handleEsc);

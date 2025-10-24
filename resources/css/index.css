@@ -695,7 +695,7 @@ body::before {
 .snow-toggle {
     position: fixed;
     top: 1.5rem;
-    right: 5.5rem;
+    right: 1.5rem;
     width: 56px;
     height: 56px;
     background: var(--bg-secondary);
@@ -885,6 +885,8 @@ body::before {
     .snow-toggle {
         width: 44px;
         height: 44px;
+        top: 0.75rem;
+        right: 0.75rem;
     }
     
     /* Reduce snowflake size on mobile */
@@ -969,7 +971,7 @@ body::before {
 .modal-close {
     position: absolute;
     top: 2rem;
-    right: 2rem;
+    right: 6rem;
     width: 48px;
     height: 48px;
     background: var(--bg-secondary);

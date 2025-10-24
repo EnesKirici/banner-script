@@ -1,10 +1,15 @@
 import axios from "axios";
 import fs from "fs";
-import path from "path";
-import sharp from "sharp";
 import sizeOf from "image-size";
 import dotenv from "dotenv";
 import * as cheerio from "cheerio";
+import puppeteer from "puppeteer";
+import { 
+  cacheSearchResults, 
+  getSearchResultsFromCache, 
+  cacheMovieBanners, 
+  getMovieBannersFromCache 
+} from './cache.js';
 
 dotenv.config();
 
@@ -223,72 +228,82 @@ async function findMovieUrl(film, siteUrl) {
   }
 }
 
-// --- Film detay sayfasından tüm görselleri çek (sayfalama desteği ile) ---
-async function getMovieImages(movieInfo, siteUrl, page = 1) {
+// --- Film detay sayfasından tüm görselleri çek (Puppeteer ile) ---
+async function getMovieImages(movieInfo, siteUrl) {
   if (!movieInfo) return [];
   
   const { movieUrl, movieId, movieTitle } = movieInfo;
   const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
   
-  console.log(`   🖼️ "${movieTitle}" için görseller çekiliyor (Sayfa ${page})...`);
+  console.log(`   🖼️ "${movieTitle}" için görseller çekiliyor...`);
   
-  // IMDb medya sayfası URL'i - sayfa parametresi ile
-  const mediaUrl = page === 1 
-    ? `${siteUrl}/title/${movieId}/mediaindex`
-    : `${siteUrl}/title/${movieId}/mediaindex?page=${page}`;
+  // IMDb medya sayfası URL'i
+  const mediaUrl = `${siteUrl}/title/${movieId}/mediaindex`;
   
+  let browser;
   try {
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'Referer': movieUrl,
-    };
+    console.log(`   🌐 Tarayıcı başlatılıyor...`);
     
-    console.log(`   📡 Medya sayfası yükleniyor: ${mediaUrl}`);
-    const res = await axios.get(mediaUrl, { timeout: 15000, headers });
-    const $ = cheerio.load(res.data);
-    
-    // IMDb'deki görselleri çek - yüksek çözünürlüklü versiyonları
-    const imgs = [];
-    
-    // Thumbnail görsellerini bul ve yüksek çözünürlüklü linklerini çıkar
-    $('img[src*="media-amazon.com"]').each((_, el) => {
-      const src = $(el).attr('src');
-      if (src && src.includes('._V1_')) {
-        // IMDb görselleri ._V1_UX... formatında, bunu kaldırarak tam boyutu alırız
-        // Örnek: https://m.media-amazon.com/images/M/...._V1_UX182_CR0,0,182,268_AL_.jpg
-        // Hedef: https://m.media-amazon.com/images/M/...._V1_FMjpg_UX2000_.jpg
-        const fullSizeUrl = src.split('._V1_')[0] + '._V1_FMjpg_UX2000_.jpg';
-        imgs.push(fullSizeUrl);
-      }
+    // Puppeteer ile tarayıcı başlat
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu'
+      ]
     });
     
-    // Link'lerden de görselleri çıkar
-    $('a[href*="/title/' + movieId + '/mediaviewer/"]').each((_, el) => {
-      const href = $(el).attr('href');
-      if (href) {
-        const img = $(el).find('img').attr('src');
-        if (img && img.includes('._V1_')) {
-          const fullSizeUrl = img.split('._V1_')[0] + '._V1_FMjpg_UX2000_.jpg';
+    const page = await browser.newPage();
+    
+    // User agent ayarla
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    
+    // Viewport ayarla
+    await page.setViewport({ width: 1920, height: 1080 });
+    
+    console.log(`   📡 Medya sayfası yükleniyor: ${mediaUrl}`);
+    
+    // Sayfayı yükle
+    await page.goto(mediaUrl, { 
+      waitUntil: 'networkidle2',
+      timeout: 30000 
+    });
+    
+    console.log(`   🔍 Görseller toplanıyor...`);
+    
+    // Sayfadaki tüm görselleri topla
+    const imageUrls = await page.evaluate(() => {
+      const imgs = [];
+      
+      // Tüm media-amazon.com görsellerini bul
+      document.querySelectorAll('img[src*="media-amazon.com"]').forEach(img => {
+        const src = img.src;
+        if (src && src.includes('._V1_')) {
+          // Yüksek çözünürlüklü versiyonu al
+          const fullSizeUrl = src.split('._V1_')[0] + '._V1_FMjpg_UX2000_.jpg';
           imgs.push(fullSizeUrl);
         }
-      }
+      });
+      
+      return imgs;
     });
     
     // Tekrar edenleri kaldır
-    const uniqueImgs = [...new Set(imgs)];
+    const uniqueImgs = [...new Set(imageUrls)];
     
-    console.log(`   🖼️ ${uniqueImgs.length} adet görsel bulundu (Sayfa ${page})`);
+    console.log(`   🖼️ ${uniqueImgs.length} adet görsel bulundu`);
     
-    if (uniqueImgs.length > 0) {
-      console.log(`   ✅ İlk 3 görsel: ${uniqueImgs.slice(0, 3).join(", ")}`);
-    }
-    
+    await browser.close();
     return uniqueImgs;
     
   } catch (err) {
     console.log(`   ❌ Medya sayfası yüklenemedi: ${err.message}`);
+    if (browser) {
+      await browser.close();
+    }
     return [];
   }
 }
@@ -384,6 +399,15 @@ export async function downloadBanners(filmInput) {
 
 // --- Film ID'si ile banner indir ---
 export async function downloadBannersByMovieId(movieId, movieTitle) {
+  // Önce cache'i kontrol et
+  const cachedBanners = getMovieBannersFromCache(movieId, movieTitle);
+  if (cachedBanners) {
+    return {
+      ...cachedBanners,
+      fromCache: true
+    };
+  }
+  
   const sources = getSources();
   
   console.log(`\n🔍 "${movieTitle}" (${movieId}) için banner aranacak...\n`);
@@ -459,19 +483,27 @@ export async function downloadBannersByMovieId(movieId, movieTitle) {
   results.totalImages += foundCount;
 
   console.log("\n🏁 İşlem tamamlandı!\n");
-  return results;
+  
+  // Sonuçları cache'e kaydet
+  if (results.totalImages > 0) {
+    cacheMovieBanners(movieId, movieTitle, results);
+  }
+  
+  return {
+    ...results,
+    fromCache: false
+  };
 }
 
-// --- Belirli bir sayfa için görselleri yükle ---
-export async function loadMoreImages(movieId, movieTitle, page = 2) {
+// --- Daha fazla görsel yükle ---
+export async function loadMoreImages(movieId, movieTitle) {
   const sources = getSources();
   
-  console.log(`\n📄 "${movieTitle}" (${movieId}) için ${page}. sayfa yükleniyor...\n`);
+  console.log(`\n📄 "${movieTitle}" (${movieId}) için daha fazla görsel yükleniyor...\n`);
 
   const results = {
     totalImages: 0,
-    images: [],
-    page: page
+    images: []
   };
 
   const siteStats = {};
@@ -480,7 +512,7 @@ export async function loadMoreImages(movieId, movieTitle, page = 2) {
 
   for (const site of sources) {
     const domain = site.replace(/^https?:\/\//, "").replace(/\/$/, "");
-    console.log(`🌐 ${domain} taranıyor (Sayfa ${page})...`);
+    console.log(`🌐 ${domain} taranıyor...`);
 
     // Movie ID'yi direkt kullan
     const movieInfo = {
@@ -489,11 +521,11 @@ export async function loadMoreImages(movieId, movieTitle, page = 2) {
       movieTitle: movieTitle
     };
 
-    // Belirtilen sayfadaki görselleri çek
-    const imgs = await getMovieImages(movieInfo, site, page);
+    // Görselleri çek
+    const imgs = await getMovieImages(movieInfo, site);
     
     if (imgs.length === 0) {
-      console.log(`   ⚠️ ${page}. sayfada görsel bulunamadı`);
+      console.log(`   ⚠️ Görsel bulunamadı`);
       continue;
     }
 
@@ -522,9 +554,9 @@ export async function loadMoreImages(movieId, movieTitle, page = 2) {
   }
 
   if (foundCount === 0) {
-    console.log(`⚠️ ${page}. sayfada uygun banner bulunamadı.`);
+    console.log(`⚠️ Uygun banner bulunamadı.`);
   } else {
-    console.log(`🎉 ${page}. sayfada ${foundCount} adet uygun banner bulundu.`);
+    console.log(`🎉 ${foundCount} adet uygun banner bulundu.`);
     console.log("📊 Kaynaklara göre dağılım:");
     Object.entries(siteStats).forEach(([site, count]) => console.log(`   ${site}: ${count} görsel`));
   }
@@ -532,12 +564,22 @@ export async function loadMoreImages(movieId, movieTitle, page = 2) {
   results.images = movieImages;
   results.totalImages = foundCount;
 
-  console.log(`\n🏁 ${page}. sayfa yükleme tamamlandı!\n`);
+  console.log(`\n🏁 Yükleme tamamlandı!\n`);
   return results;
 }
 
 // --- Film arama fonksiyonu - birden fazla sonuç döndür ---
 export async function searchMoviesAPI(filmName) {
+  // Önce cache'i kontrol et
+  const cachedResults = getSearchResultsFromCache(filmName);
+  if (cachedResults) {
+    return {
+      query: filmName,
+      results: cachedResults,
+      fromCache: true
+    };
+  }
+  
   const sources = getSources();
   
   // İlk kaynaktan ara (genelde ilk kaynak IMDb olur)
@@ -565,17 +607,16 @@ export async function searchMoviesAPI(filmName) {
     return 0;
   });
   
+  // Sonuçları cache'e kaydet
+  if (results.length > 0) {
+    cacheSearchResults(filmName, results);
+  }
+  
   return {
     query: filmName,
-    results
+    results,
+    fromCache: false
   };
 }
 
-// Eğer doğrudan çalıştırılıyorsa (command line'dan)
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}`) {
-  import('readline-sync').then(module => {
-    const readlineSync = module.default;
-    const input = readlineSync.question("Film adlarini gir (virgulle ayir): ");
-    downloadBanners(input);
-  });
-}
+// Command-line kullanımı kaldırıldı - sadece web API üzerinden çalışır
