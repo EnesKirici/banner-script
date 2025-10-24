@@ -695,7 +695,7 @@ body::before {
 .snow-toggle {
     position: fixed;
     top: 1.5rem;
-    right: 1.5rem;
+    right: 5.5rem;
     width: 56px;
     height: 56px;
     background: var(--bg-secondary);
@@ -1434,4 +1434,98 @@ body::before {
 
 .loading-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Load More Button */
+.load-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 3rem auto 0;
+    padding: 1rem 2.5rem;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    max-width: 400px;
+}
+
+.load-more-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.load-more-btn:hover {
+    transform: translateY(-4px);
+    border-color: var(--accent-cyan);
+    box-shadow: var(--shadow-glow);
+    color: var(--accent-cyan);
+}
+
+.load-more-btn:hover::before {
+    opacity: 0.1;
+}
+
+.load-more-btn:active {
+    transform: translateY(-2px);
+}
+
+.load-more-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.load-more-btn svg {
+    width: 20px;
+    height: 20px;
+    position: relative;
+    z-index: 1;
+    transition: transform 0.3s ease;
+}
+
+.load-more-btn:hover svg {
+    transform: translateY(4px);
+}
+
+.load-more-btn.loading svg {
+    animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-8px);
+    }
+}
+
+.load-more-btn span {
+    position: relative;
+    z-index: 1;
+}
+
+.load-more-btn .page-indicator {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+@media (max-width: 768px) {
+    .load-more-btn {
+        width: 100%;
+        max-width: none;
+    }
 }

@@ -17,6 +17,8 @@ let isProcessing = false;
 let downloadedImages = [];
 let movieSearchResults = [];
 let selectedMovieId = null;
+let currentMovieTitle = null;
+let currentPage = 1;
 
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);
@@ -39,16 +41,8 @@ async function handleSearch() {
         return;
     }
 
-    // Virgül ile ayrılmış birden fazla film kontrolü
-    const movieList = movieNames.split(',').map(m => m.trim()).filter(Boolean);
-    
-    // Tek film için arama yap
-    if (movieList.length === 1) {
-        await searchAndShowResults(movieList[0]);
-    } else {
-        // Birden fazla film için direkt indir
-        await downloadBanners(movieNames);
-    }
+    // Her zaman arama yap ve sonuçları göster
+    await searchAndShowResults(movieNames);
 }
 
 // Film arama ve sonuçları gösterme
@@ -226,6 +220,11 @@ async function downloadBannersForMovie(movieId, movieTitle) {
     isProcessing = true;
     searchBtn.disabled = true;
     
+    // State'i güncelle
+    selectedMovieId = movieId;
+    currentMovieTitle = movieTitle;
+    currentPage = 1;
+    
     showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için bannerlar indiriliyor...`);
     simulateProgress();
 
@@ -252,52 +251,7 @@ async function downloadBannersForMovie(movieId, movieTitle) {
         
         setTimeout(() => {
             showStatus('success', 'İşlem Tamamlandı! 🎉', 
-                `${result.totalImages} adet banner başarıyla bulundu`);
-            
-            loadDownloadedImages(result.images);
-        }, 500);
-
-    } catch (error) {
-        console.error('Error:', error);
-        showStatus('error', 'Hata Oluştu', 
-            'Banner indirme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.');
-    } finally {
-        isProcessing = false;
-        searchBtn.disabled = false;
-    }
-}
-
-// Banner indirme (birden fazla film için)
-async function downloadBanners(movieNames) {
-    isProcessing = true;
-    searchBtn.disabled = true;
-    hideMovieSelection();
-    
-    showStatus('loading', 'İşlem Başladı', 'Filmler aranıyor ve bannerlar indiriliyor...');
-    hideEmptyState();
-    
-    simulateProgress();
-
-    try {
-        const response = await fetch('/api/download', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ movies: movieNames })
-        });
-
-        if (!response.ok) {
-            throw new Error('İndirme işlemi başarısız oldu');
-        }
-
-        const result = await response.json();
-        
-        progressFill.style.width = '100%';
-        
-        setTimeout(() => {
-            showStatus('success', 'İşlem Tamamlandı! 🎉', 
-                `${result.totalImages} adet banner başarıyla bulundu`);
+                `${result.totalImages} adet banner bulundu`);
             
             loadDownloadedImages(result.images);
         }, 500);
@@ -364,26 +318,152 @@ function showStatus(type, title, message) {
 }
 
 // Load and display downloaded images
-function loadDownloadedImages(images) {
+function loadDownloadedImages(images, append = false) {
     if (!images || images.length === 0) {
+        if (!append) {
+            // İlk yüklemede görsel yoksa boş durumu göster
+            resultsSection.classList.add('hidden');
+        }
         return;
     }
 
-    downloadedImages = images;
-    resultsGrid.innerHTML = '';
+    if (!append) {
+        // Yeni sonuç, grid'i temizle
+        downloadedImages = images;
+        resultsGrid.innerHTML = '';
+    } else {
+        // Mevcut görsellere ekle
+        downloadedImages = [...downloadedImages, ...images];
+    }
+    
+    const startIndex = append ? downloadedImages.length - images.length : 0;
     
     images.forEach((image, index) => {
-        const card = createImageCard(image, index);
+        const card = createImageCard(image, startIndex + index);
         resultsGrid.appendChild(card);
     });
 
-    resultsCount.textContent = `${images.length} görsel`;
+    resultsCount.textContent = `${downloadedImages.length} görsel`;
     resultsSection.classList.remove('hidden');
     
-    // Scroll to results
-    setTimeout(() => {
-        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 300);
+    // "Daha Fazla Yükle" butonunu kontrol et / güncelle
+    updateLoadMoreButton();
+    
+    // Scroll to results (sadece ilk yüklemede)
+    if (!append) {
+        setTimeout(() => {
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 300);
+    }
+}
+
+// "Daha Fazla Yükle" butonu güncelleme
+function updateLoadMoreButton() {
+    let loadMoreBtn = document.getElementById('loadMoreBtn');
+    
+    // Buton yoksa oluştur
+    if (!loadMoreBtn) {
+        loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'loadMoreBtn';
+        loadMoreBtn.className = 'load-more-btn';
+        loadMoreBtn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5V19M12 19L19 12M12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="btn-text">Daha Fazla Yükle</span>
+            <span class="page-indicator">(Sayfa 2)</span>
+        `;
+        loadMoreBtn.addEventListener('click', loadMoreImages);
+        
+        // Results section'ın sonuna ekle
+        resultsSection.appendChild(loadMoreBtn);
+    }
+    
+    // Sayfa göstergesini güncelle
+    const pageIndicator = loadMoreBtn.querySelector('.page-indicator');
+    if (pageIndicator) {
+        pageIndicator.textContent = `(Sayfa ${currentPage + 1})`;
+    }
+    
+    // Butonu göster (eğer selectedMovieId varsa)
+    if (selectedMovieId) {
+        loadMoreBtn.style.display = 'flex';
+    }
+}
+
+// Daha fazla görsel yükle
+async function loadMoreImages() {
+    if (isProcessing || !selectedMovieId || !currentMovieTitle) {
+        console.log('Load more cancelled:', { isProcessing, selectedMovieId, currentMovieTitle });
+        return;
+    }
+    
+    const loadMoreBtn = document.getElementById('loadMoreBtn');
+    if (!loadMoreBtn) {
+        console.error('Load more button not found');
+        return;
+    }
+    
+    isProcessing = true;
+    loadMoreBtn.disabled = true;
+    loadMoreBtn.classList.add('loading');
+    
+    // Buton metnini değiştir
+    const btnText = loadMoreBtn.querySelector('.btn-text');
+    const originalText = btnText ? btnText.textContent : 'Daha Fazla Yükle';
+    
+    if (btnText) {
+        btnText.textContent = 'Yükleniyor...';
+    }
+    
+    currentPage += 1;
+    console.log(`Loading page ${currentPage} for ${currentMovieTitle} (${selectedMovieId})`);
+    
+    try {
+        const response = await fetch('/api/load-more-images', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                movieId: selectedMovieId,
+                movieTitle: currentMovieTitle,
+                page: currentPage
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error('Daha fazla görsel yüklenemedi');
+        }
+
+        const result = await response.json();
+        console.log('Load more result:', result);
+        
+        if (result.totalImages > 0) {
+            // Yeni görselleri mevcut listeye ekle
+            loadDownloadedImages(result.images, true);
+            showNotification(`✨ ${result.totalImages} adet yeni görsel eklendi!`, 'success');
+        } else {
+            showNotification('ℹ️ Daha fazla görsel bulunamadı', 'info');
+            // Butonu gizle
+            loadMoreBtn.style.display = 'none';
+        }
+
+    } catch (error) {
+        console.error('Load more error:', error);
+        showNotification('❌ Daha fazla görsel yüklenirken hata oluştu', 'error');
+        currentPage -= 1; // Geri al
+    } finally {
+        isProcessing = false;
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.classList.remove('loading');
+        
+        if (btnText) {
+            btnText.textContent = originalText;
+        }
+    }
 }
 
 // Create image card element
@@ -574,77 +654,6 @@ function showNotification(message, type = 'info') {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
-}
-
-// Demo mode - for testing without backend
-// This will load sample images from the banners folder
-function initDemoMode() {
-    // Check if we're in demo mode (no backend available)
-    searchBtn.addEventListener('click', async () => {
-        // Try to fetch real data first, if fails, use demo data
-        try {
-            await fetch('/api/health');
-        } catch (error) {
-            // Backend not available, use demo mode
-            console.log('Running in demo mode');
-            await handleDemoSearch();
-        }
-    });
-}
-
-async function handleDemoSearch() {
-    const movieNames = movieInput.value.trim();
-    
-    if (!movieNames) {
-        showNotification('Lütfen bir film adı girin', 'error');
-        return;
-    }
-
-    if (isProcessing) {
-        return;
-    }
-
-    isProcessing = true;
-    searchBtn.disabled = true;
-    
-    showStatus('loading', 'İşlem Başladı', 'Filmler aranıyor ve bannerlar indiriliyor...');
-    hideEmptyState();
-    
-    simulateProgress();
-
-    // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // Create demo images
-    const movies = movieNames.split(',').map(m => m.trim());
-    const demoImages = [];
-    
-    movies.forEach(movie => {
-        const folderName = movie.toLowerCase().replace(/\s+/g, '_');
-        // Create 3-5 demo images per movie
-        const count = Math.floor(Math.random() * 3) + 3;
-        
-        for (let i = 0; i < count; i++) {
-            demoImages.push({
-                name: `${movie} - Banner ${i + 1}`,
-                path: `../../banners/${folderName}/${movie.replace(/\s+/g, '_')}_${1920 + i * 100}x${800 + i * 50}_${i + 1}.jpg`,
-                width: 1920 + i * 100,
-                height: 800 + i * 50
-            });
-        }
-    });
-
-    progressFill.style.width = '100%';
-    
-    setTimeout(() => {
-        showStatus('success', 'İşlem Tamamlandı! 🎉', 
-            `${demoImages.length} adet banner başarıyla indirildi`);
-        
-        loadDownloadedImages(demoImages);
-        
-        isProcessing = false;
-        searchBtn.disabled = false;
-    }, 500);
 }
 
 // Initialize

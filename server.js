@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId } from './banner-downloader-api.js';
+import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -130,6 +130,50 @@ app.post('/api/download', async (req, res) => {
         console.error('❌ Error:', error);
         res.status(500).json({ 
             error: 'Bir hata oluştu',
+            details: error.message 
+        });
+    }
+});
+
+// Load more images endpoint - sayfalama için
+app.post('/api/load-more-images', async (req, res) => {
+    const { movieId, movieTitle, page } = req.body;
+    
+    if (!movieId || !movieTitle || !page) {
+        return res.status(400).json({ error: 'Film ID, başlığı ve sayfa numarası gerekli' });
+    }
+
+    console.log(`\n📄 Daha fazla yükle isteği: ${movieTitle} (${movieId}) - Sayfa ${page}\n`);
+
+    try {
+        const result = await loadMoreImages(movieId, movieTitle, page);
+
+        console.log(`\n✅ Sayfa ${page}: ${result.totalImages} görsel bulundu\n`);
+
+        const images = result.images.map((img, index) => ({
+            id: index,
+            name: img.filename,
+            url: img.url,
+            width: img.width,
+            height: img.height,
+            movie: img.film,
+            domain: img.domain
+        }));
+
+        res.json({
+            success: true,
+            totalImages: result.totalImages,
+            images,
+            page: result.page,
+            message: result.totalImages > 0 
+                ? `Sayfa ${page}: ${result.totalImages} adet yeni banner bulundu`
+                : `Sayfa ${page}'de yeni banner bulunamadı`
+        });
+
+    } catch (error) {
+        console.error('❌ Error:', error);
+        res.status(500).json({ 
+            error: 'Daha fazla görsel yüklenirken bir hata oluştu',
             details: error.message 
         });
     }

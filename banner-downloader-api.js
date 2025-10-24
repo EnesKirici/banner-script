@@ -223,17 +223,19 @@ async function findMovieUrl(film, siteUrl) {
   }
 }
 
-// --- Film detay sayfasından tüm görselleri çek ---
-async function getMovieImages(movieInfo, siteUrl) {
+// --- Film detay sayfasından tüm görselleri çek (sayfalama desteği ile) ---
+async function getMovieImages(movieInfo, siteUrl, page = 1) {
   if (!movieInfo) return [];
   
   const { movieUrl, movieId, movieTitle } = movieInfo;
   const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
   
-  console.log(`   🖼️ "${movieTitle}" için görseller çekiliyor...`);
+  console.log(`   🖼️ "${movieTitle}" için görseller çekiliyor (Sayfa ${page})...`);
   
-  // IMDb medya sayfası URL'i
-  const mediaUrl = `${siteUrl}/title/${movieId}/mediaindex`;
+  // IMDb medya sayfası URL'i - sayfa parametresi ile
+  const mediaUrl = page === 1 
+    ? `${siteUrl}/title/${movieId}/mediaindex`
+    : `${siteUrl}/title/${movieId}/mediaindex?page=${page}`;
   
   try {
     const headers = {
@@ -277,7 +279,7 @@ async function getMovieImages(movieInfo, siteUrl) {
     // Tekrar edenleri kaldır
     const uniqueImgs = [...new Set(imgs)];
     
-    console.log(`   🖼️ ${uniqueImgs.length} adet görsel bulundu`);
+    console.log(`   🖼️ ${uniqueImgs.length} adet görsel bulundu (Sayfa ${page})`);
     
     if (uniqueImgs.length > 0) {
       console.log(`   ✅ İlk 3 görsel: ${uniqueImgs.slice(0, 3).join(", ")}`);
@@ -457,6 +459,80 @@ export async function downloadBannersByMovieId(movieId, movieTitle) {
   results.totalImages += foundCount;
 
   console.log("\n🏁 İşlem tamamlandı!\n");
+  return results;
+}
+
+// --- Belirli bir sayfa için görselleri yükle ---
+export async function loadMoreImages(movieId, movieTitle, page = 2) {
+  const sources = getSources();
+  
+  console.log(`\n📄 "${movieTitle}" (${movieId}) için ${page}. sayfa yükleniyor...\n`);
+
+  const results = {
+    totalImages: 0,
+    images: [],
+    page: page
+  };
+
+  const siteStats = {};
+  let foundCount = 0;
+  const movieImages = [];
+
+  for (const site of sources) {
+    const domain = site.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    console.log(`🌐 ${domain} taranıyor (Sayfa ${page})...`);
+
+    // Movie ID'yi direkt kullan
+    const movieInfo = {
+      movieUrl: `${site}/title/${movieId}/`,
+      movieId: movieId,
+      movieTitle: movieTitle
+    };
+
+    // Belirtilen sayfadaki görselleri çek
+    const imgs = await getMovieImages(movieInfo, site, page);
+    
+    if (imgs.length === 0) {
+      console.log(`   ⚠️ ${page}. sayfada görsel bulunamadı`);
+      continue;
+    }
+
+    // Görselleri paralel kontrol et
+    const CONCURRENT_CHECKS = 3;
+    for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
+      const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
+      const batchResults = await Promise.allSettled(
+        batch.map(img => checkImage(img, movieTitle, domain))
+      );
+      
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          movieImages.push(result.value);
+          foundCount++;
+          siteStats[domain] = (siteStats[domain] || 0) + 1;
+        }
+      });
+      
+      if (i + CONCURRENT_CHECKS < imgs.length) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+    }
+    
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  if (foundCount === 0) {
+    console.log(`⚠️ ${page}. sayfada uygun banner bulunamadı.`);
+  } else {
+    console.log(`🎉 ${page}. sayfada ${foundCount} adet uygun banner bulundu.`);
+    console.log("📊 Kaynaklara göre dağılım:");
+    Object.entries(siteStats).forEach(([site, count]) => console.log(`   ${site}: ${count} görsel`));
+  }
+
+  results.images = movieImages;
+  results.totalImages = foundCount;
+
+  console.log(`\n🏁 ${page}. sayfa yükleme tamamlandı!\n`);
   return results;
 }
 
