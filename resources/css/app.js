@@ -228,7 +228,6 @@ function createImageCard(image, index) {
 // Download image function
 async function downloadImage(image) {
     try {
-        showNotification(`"${image.name}" indiriliyor...`, 'info');
         
         const response = await fetch(image.url);
         const blob = await response.blob();
@@ -242,7 +241,7 @@ async function downloadImage(image) {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         
-        showNotification(`✅ "${image.name}" başarıyla indirildi!`, 'success');
+        showNotification(`"${image.name}" başarıyla indirildi!`, 'success');
     } catch (error) {
         console.error('Download error:', error);
         showNotification(`❌ İndirme hatası: ${error.message}`, 'error');
@@ -418,4 +417,172 @@ document.addEventListener('DOMContentLoaded', () => {
             movieInput.select();
         }
     });
+    
+    // Initialize snow effect
+    initSnowEffect();
 });
+
+// ==================== SNOW EFFECT CODE ====================
+
+// Snow Effect Configuration
+const snowConfig = {
+    enabled: true,
+    maxSnowflakes: 10, // ⬅️ KAR MİKTARINI BURADAN AYARLAYIN (örn: 20-30 daha az kar için)
+    snowflakeChars: ['❄', '❅', '❆', '✻', '✼', '❉', '✺'],
+    glowTypes: ['cyan-glow', 'teal-glow', 'white-soft', ''],
+    minSize: 0.5,
+    maxSize: 1.8,
+    minDuration: 8,
+    maxDuration: 20,
+    minDrift: -100,
+    maxDrift: 100
+};
+
+// Snow State
+let snowState = {
+    snowflakes: [],
+    isActive: true
+};
+
+// Initialize Snow Effect
+function initSnowEffect() {
+    const snowContainer = document.getElementById('snowContainer');
+    const snowToggle = document.getElementById('snowToggle');
+    
+    if (!snowContainer || !snowToggle) {
+        console.warn('Snow effect elements not found');
+        return;
+    }
+    
+    // Load saved state from localStorage
+    const savedState = localStorage.getItem('snowEffectEnabled');
+    if (savedState !== null) {
+        snowState.isActive = savedState === 'true';
+    }
+    
+    // Set initial state
+    updateSnowToggleButton();
+    
+    if (snowState.isActive) {
+        startSnowEffect();
+    }
+    
+    // Toggle button click handler
+    snowToggle.addEventListener('click', () => {
+        snowState.isActive = !snowState.isActive;
+        localStorage.setItem('snowEffectEnabled', snowState.isActive);
+        updateSnowToggleButton();
+        
+        if (snowState.isActive) {
+            startSnowEffect();
+            showNotification('❄️ Kar efekti açıldı', 'info');
+        } else {
+            stopSnowEffect();
+            showNotification('☃️ Kar efekti kapatıldı', 'info');
+        }
+    });
+}
+
+// Update toggle button appearance
+function updateSnowToggleButton() {
+    const snowToggle = document.getElementById('snowToggle');
+    if (snowState.isActive) {
+        snowToggle.classList.add('active');
+        snowToggle.setAttribute('aria-label', 'Kar efektini kapat');
+    } else {
+        snowToggle.classList.remove('active');
+        snowToggle.setAttribute('aria-label', 'Kar efektini aç');
+    }
+}
+
+// Start snow effect
+function startSnowEffect() {
+    createSnowflakes();
+}
+
+// Stop snow effect
+function stopSnowEffect() {
+    // Clear all snowflakes
+    const snowContainer = document.getElementById('snowContainer');
+    if (snowContainer) {
+        snowContainer.innerHTML = '';
+    }
+    snowState.snowflakes = [];
+}
+
+// Create snowflakes
+function createSnowflakes() {
+    const snowContainer = document.getElementById('snowContainer');
+    if (!snowContainer) return;
+    
+    // Create initial batch
+    for (let i = 0; i < snowConfig.maxSnowflakes; i++) {
+        setTimeout(() => {
+            if (snowState.isActive) {
+                createSnowflake();
+            }
+        }, i * 200); // Stagger creation
+    }
+}
+
+// Create a single snowflake
+function createSnowflake() {
+    const snowContainer = document.getElementById('snowContainer');
+    if (!snowContainer || !snowState.isActive) return;
+    
+    const snowflake = document.createElement('div');
+    snowflake.className = 'snowflake';
+    
+    // Random properties
+    const char = snowConfig.snowflakeChars[Math.floor(Math.random() * snowConfig.snowflakeChars.length)];
+    const glowType = snowConfig.glowTypes[Math.floor(Math.random() * snowConfig.glowTypes.length)];
+    const size = snowConfig.minSize + Math.random() * (snowConfig.maxSize - snowConfig.minSize);
+    const duration = snowConfig.minDuration + Math.random() * (snowConfig.maxDuration - snowConfig.minDuration);
+    const startPos = Math.random() * 100;
+    const drift = snowConfig.minDrift + Math.random() * (snowConfig.maxDrift - snowConfig.minDrift);
+    const swayDistance = 10 + Math.random() * 30;
+    const sparkleDelay = Math.random() * 3;
+    
+    // Apply properties
+    snowflake.textContent = char;
+    snowflake.classList.add(glowType);
+    snowflake.style.left = `${startPos}%`;
+    snowflake.style.fontSize = `${size}rem`;
+    snowflake.style.animationDuration = `${duration}s`;
+    snowflake.style.setProperty('--drift', `${drift}px`);
+    snowflake.style.setProperty('--sway-distance', `${swayDistance}px`);
+    snowflake.style.setProperty('--sparkle-delay', `${sparkleDelay}s`);
+    
+    // Add to container
+    snowContainer.appendChild(snowflake);
+    snowState.snowflakes.push(snowflake);
+    
+    // Remove after animation completes and create new one
+    setTimeout(() => {
+        if (snowflake.parentNode) {
+            snowflake.remove();
+        }
+        const index = snowState.snowflakes.indexOf(snowflake);
+        if (index > -1) {
+            snowState.snowflakes.splice(index, 1);
+        }
+        
+        // Create a new snowflake to maintain count
+        if (snowState.isActive) {
+            createSnowflake();
+        }
+    }, duration * 1000);
+}
+
+// Utility: Check if user prefers reduced motion
+function prefersReducedMotion() {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Disable snow effect if user prefers reduced motion
+if (prefersReducedMotion()) {
+    snowState.isActive = false;
+    localStorage.setItem('snowEffectEnabled', 'false');
+}
+
+// ==================== END SNOW EFFECT CODE ====================

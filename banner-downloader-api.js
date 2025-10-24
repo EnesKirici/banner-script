@@ -12,8 +12,8 @@ dotenv.config();
 const MIN_WIDTH = 1920;   // Minimum genişlik
 const MAX_WIDTH = 2400;   // Maksimum genişlik  
 const MIN_HEIGHT = 700;   // Minimum yükseklik
-const MAX_HEIGHT = 1400;  // Maksimum yükseklik (1400'den 1300'e düşürdük)
-const DELAY_MS = 1500;    // Filmler arası bekleme (2000'den 1500'e düşürüldü)
+const MAX_HEIGHT = 1400;  // Maksimum yükseklik 
+const DELAY_MS = 1500;    // Filmler arası bekleme
 
 // --- sources.json okuma ---
 function getSources() {

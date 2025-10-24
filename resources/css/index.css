@@ -677,6 +677,240 @@ body::before {
     20%, 40% { transform: scale(1); }
 }
 
+/* ==================== SNOW EFFECT STYLES ==================== */
+
+/* Snow Container */
+.snow-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* Snow Toggle Button */
+.snow-toggle {
+    position: fixed;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 56px;
+    height: 56px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10000;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(0, 212, 255, 0.2);
+    overflow: hidden;
+}
+
+.snow-toggle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 50%;
+}
+
+.snow-toggle:hover {
+    transform: scale(1.1) rotate(10deg);
+    border-color: var(--accent-cyan);
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.4),
+        0 0 30px rgba(0, 212, 255, 0.4);
+}
+
+.snow-toggle:hover::before {
+    opacity: 0.15;
+}
+
+.snow-toggle:active {
+    transform: scale(0.95) rotate(0deg);
+}
+
+.snow-toggle .snow-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--accent-cyan);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+}
+
+.snow-toggle .snow-toggle-text {
+    position: absolute;
+    font-size: 1.5rem;
+    opacity: 0;
+    transform: scale(0) rotate(-180deg);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.snow-toggle.active .snow-icon {
+    opacity: 0;
+    transform: scale(0) rotate(180deg);
+}
+
+.snow-toggle.active .snow-toggle-text {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+}
+
+.snow-toggle.active {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 255, 204, 0.15) 100%);
+    border-color: var(--accent-teal);
+}
+
+/* Individual Snowflake */
+.snowflake {
+    position: absolute;
+    top: -10px;
+    color: #fff;
+    font-size: 1em;
+    pointer-events: none;
+    user-select: none;
+    animation: snowfall linear infinite;
+    filter: drop-shadow(0 0 3px rgba(0, 212, 255, 0.4))
+            drop-shadow(0 0 6px rgba(0, 255, 204, 0.3))
+            drop-shadow(0 0 10px rgba(255, 255, 255, 0.2));
+}
+
+/* Snowflake variations with theme colors */
+.snowflake.cyan-glow {
+    color: rgba(0, 212, 255, 0.8);
+    filter: drop-shadow(0 0 4px rgba(0, 212, 255, 0.6))
+            drop-shadow(0 0 8px rgba(0, 212, 255, 0.4))
+            drop-shadow(0 0 12px rgba(255, 255, 255, 0.3));
+}
+
+.snowflake.teal-glow {
+    color: rgba(0, 255, 204, 0.8);
+    filter: drop-shadow(0 0 4px rgba(0, 255, 204, 0.6))
+            drop-shadow(0 0 8px rgba(0, 255, 204, 0.4))
+            drop-shadow(0 0 12px rgba(255, 255, 255, 0.3));
+}
+
+.snowflake.white-soft {
+    color: rgba(255, 255, 255, 0.7);
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3))
+            drop-shadow(0 0 6px rgba(0, 212, 255, 0.2));
+}
+
+/* Snowfall animation */
+@keyframes snowfall {
+    0% {
+        transform: translateY(0) translateX(0) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) translateX(var(--drift, 0)) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Gentle sway animation for more natural movement */
+@keyframes sway {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(var(--sway-distance, 20px));
+    }
+}
+
+/* Add subtle sparkle effect */
+.snowflake::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.8) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    animation: sparkle 3s ease-in-out infinite;
+    animation-delay: var(--sparkle-delay, 0s);
+    border-radius: 50%;
+}
+
+@keyframes sparkle {
+    0%, 100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+    }
+    50% {
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+}
+
+/* Responsive Snow Toggle */
+@media (max-width: 768px) {
+    .snow-toggle {
+        width: 48px;
+        height: 48px;
+        top: 1rem;
+        right: 1rem;
+    }
+    
+    .snow-toggle .snow-icon {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .snow-toggle .snow-toggle-text {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .snow-toggle {
+        width: 44px;
+        height: 44px;
+    }
+    
+    /* Reduce snowflake size on mobile */
+    .snowflake {
+        font-size: 0.8em;
+    }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .snowflake {
+        animation: none;
+        display: none;
+    }
+    
+    .footer-snow-accumulation {
+        transition: none;
+    }
+    
+    .snow-toggle {
+        animation: none;
+    }
+}
+
+/* ==================== END SNOW EFFECT STYLES ==================== */
+
 /* Utility Classes */
 .hidden {
     display: none !important;
