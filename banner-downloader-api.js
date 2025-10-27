@@ -14,11 +14,40 @@ import {
 dotenv.config();
 
 // --- Ayarlar ---
-const MIN_WIDTH = 1920;   // Minimum genişlik
-const MAX_WIDTH = 2400;   // Maksimum genişlik  
-const MIN_HEIGHT = 700;   // Minimum yükseklik
-const MAX_HEIGHT = 1400;  // Maksimum yükseklik 
+const DEFAULT_MIN_WIDTH = 1920;   // Minimum genişlik
+const DEFAULT_MAX_WIDTH = 2400;   // Maksimum genişlik  
+const DEFAULT_MIN_HEIGHT = 700;   // Minimum yükseklik
+const DEFAULT_MAX_HEIGHT = 1400;  // Maksimum yükseklik 
 const DELAY_MS = 1500;    // Filmler arası bekleme
+
+// Boyut filtresi presetleri
+const SIZE_PRESETS = {
+  'default': { minWidth: 1920, maxWidth: 2400, minHeight: 700, maxHeight: 1400 },
+  '1920x1080': { minWidth: 1800, maxWidth: 2000, minHeight: 1000, maxHeight: 1180 }, // Tolerans ile
+  '2560x1440': { minWidth: 2400, maxWidth: 2700, minHeight: 1300, maxHeight: 1580 },
+  '3840x2160': { minWidth: 3600, maxWidth: 4100, minHeight: 2000, maxHeight: 2300 },
+  '1280x720': { minWidth: 1200, maxWidth: 1400, minHeight: 650, maxHeight: 800 },
+  'custom': { minWidth: 0, maxWidth: 100000, minHeight: 0, maxHeight: 100000 } // Tüm boyutlar
+};
+
+// Boyut filtresini parse et
+function parseSizeFilter(sizeFilter) {
+  console.log(`📐 parseSizeFilter çağrıldı - Gelen değer: "${sizeFilter}" (tip: ${typeof sizeFilter})`);
+  
+  if (!sizeFilter || sizeFilter === 'default') {
+    console.log(`   → Varsayılan boyut kullanılıyor`);
+    return SIZE_PRESETS.default;
+  }
+  
+  if (SIZE_PRESETS[sizeFilter]) {
+    console.log(`   → "${sizeFilter}" preset bulundu:`, SIZE_PRESETS[sizeFilter]);
+    return SIZE_PRESETS[sizeFilter];
+  }
+  
+  console.log(`   ⚠️ "${sizeFilter}" preset bulunamadı, varsayılan kullanılıyor`);
+  // Varsayılan değer
+  return SIZE_PRESETS.default;
+}
 
 // --- sources.json okuma ---
 function getSources() {
@@ -46,9 +75,12 @@ async function checkImageSize(url) {
 }
 
 // --- Görselleri kontrol et ve metadata döndür (kaydetmeden) ---
-async function checkImage(url, film, domain) {
+async function checkImage(url, film, domain, sizeFilter = 'default') {
   try {
     console.log(`   🔄 Kontrol ediliyor: ${url}`);
+    
+    // Boyut filtresini parse et
+    const { minWidth, maxWidth, minHeight, maxHeight } = parseSizeFilter(sizeFilter);
     
     // Önce HEAD ile kontrol et
     const { skip, contentType } = await checkImageSize(url);
@@ -61,10 +93,10 @@ async function checkImage(url, film, domain) {
     const buffer = Buffer.from(imgRes.data);
     const { width, height } = sizeOf(buffer);
 
-    console.log(`   📏 Boyut: ${width}x${height} (kabul edilen: ${MIN_WIDTH}-${MAX_WIDTH}px genişlik, ${MIN_HEIGHT}-${MAX_HEIGHT}px yükseklik)`);
+    console.log(`   📏 Boyut: ${width}x${height} (kabul edilen: ${minWidth}-${maxWidth}px genişlik, ${minHeight}-${maxHeight}px yükseklik)`);
 
     // Katı boyut kontrolü - sadece belirtilen aralıktaki görseller
-    if (width >= MIN_WIDTH && width <= MAX_WIDTH && height >= MIN_HEIGHT && height <= MAX_HEIGHT) {
+    if (width >= minWidth && width <= maxWidth && height >= minHeight && height <= maxHeight) {
       console.log(`✅ Uygun görsel bulundu - Boyut: ${width}x${height}`);
       
       // Base64'e çevir (küçük boyutlar için) veya URL'i döndür
@@ -398,19 +430,36 @@ export async function downloadBanners(filmInput) {
 }
 
 // --- Film ID'si ile banner indir ---
-export async function downloadBannersByMovieId(movieId, movieTitle) {
+export async function downloadBannersByMovieId(movieId, movieTitle, sizeFilter = 'default') {
+  console.log(`\n🔍 "${movieTitle}" (${movieId}) için banner aranacak...`);
+  console.log(`📐 Boyut filtresi: ${sizeFilter}\n`);
+  
   // Önce cache'i kontrol et
   const cachedBanners = getMovieBannersFromCache(movieId, movieTitle);
   if (cachedBanners) {
+    console.log(`💾 Cache'den veri bulundu, boyut filtresine göre filtreleniyor...`);
+    
+    // Cache'den gelen sonuçları boyut filtresine göre filtrele
+    const { minWidth, maxWidth, minHeight, maxHeight } = parseSizeFilter(sizeFilter);
+    
+    console.log(`   📏 Filtreleme aralığı: ${minWidth}-${maxWidth}px x ${minHeight}-${maxHeight}px`);
+    
+    const filteredImages = cachedBanners.images.filter(img => 
+      img.width >= minWidth && img.width <= maxWidth && 
+      img.height >= minHeight && img.height <= maxHeight
+    );
+    
+    console.log(`   ✅ ${filteredImages.length} / ${cachedBanners.images.length} görsel filtreleme geçti\n`);
+    
     return {
-      ...cachedBanners,
+      totalImages: filteredImages.length,
+      images: filteredImages,
+      movies: cachedBanners.movies,
       fromCache: true
     };
   }
   
   const sources = getSources();
-  
-  console.log(`\n🔍 "${movieTitle}" (${movieId}) için banner aranacak...\n`);
 
   const results = {
     totalImages: 0,
@@ -446,7 +495,7 @@ export async function downloadBannersByMovieId(movieId, movieTitle) {
     for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
       const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
       const batchResults = await Promise.allSettled(
-        batch.map(img => checkImage(img, movieTitle, domain))
+        batch.map(img => checkImage(img, movieTitle, domain, sizeFilter))
       );
       
       batchResults.forEach(result => {
@@ -484,7 +533,7 @@ export async function downloadBannersByMovieId(movieId, movieTitle) {
 
   console.log("\n🏁 İşlem tamamlandı!\n");
   
-  // Sonuçları cache'e kaydet
+  // Sonuçları cache'e kaydet (sizeFilter olmadan, ham veriyi kaydet)
   if (results.totalImages > 0) {
     cacheMovieBanners(movieId, movieTitle, results);
   }
@@ -496,10 +545,11 @@ export async function downloadBannersByMovieId(movieId, movieTitle) {
 }
 
 // --- Daha fazla görsel yükle ---
-export async function loadMoreImages(movieId, movieTitle) {
+export async function loadMoreImages(movieId, movieTitle, sizeFilter = 'default') {
   const sources = getSources();
   
-  console.log(`\n📄 "${movieTitle}" (${movieId}) için daha fazla görsel yükleniyor...\n`);
+  console.log(`\n📄 "${movieTitle}" (${movieId}) için daha fazla görsel yükleniyor...`);
+  console.log(`📐 Boyut filtresi: ${sizeFilter}\n`);
 
   const results = {
     totalImages: 0,
@@ -534,7 +584,7 @@ export async function loadMoreImages(movieId, movieTitle) {
     for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
       const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
       const batchResults = await Promise.allSettled(
-        batch.map(img => checkImage(img, movieTitle, domain))
+        batch.map(img => checkImage(img, movieTitle, domain, sizeFilter))
       );
       
       batchResults.forEach(result => {

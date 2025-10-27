@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Yönetimi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+        }
+        button {
+            background: linear-gradient(135deg, #00d4ff 0%, #00ffcc 100%);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px;
+        }
+        button:hover {
+            opacity: 0.9;
+        }
+        .info {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            border: 2px solid #00d4ff;
+        }
+        .stats {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗄️ Cache Yönetimi</h1>
+    
+    <button onclick="clearCache()">🗑️ Cache'i Temizle</button>
+    <button onclick="getCacheStats()">📊 Cache İstatistikleri</button>
+    <button onclick="location.href='/'">🏠 Ana Sayfaya Dön</button>
+    
+    <div id="result" class="info" style="display: none;"></div>
+    
+    <script>
+        async function clearCache() {
+            try {
+                const response = await fetch('/api/cache/clear', {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<h2>✅ Başarılı!</h2><p>${result.message}</p>`;
+            } catch (error) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<h2>❌ Hata!</h2><p>${error.message}</p>`;
+            }
+        }
+        
+        async function getCacheStats() {
+            try {
+                const response = await fetch('/api/cache/stats');
+                const result = await response.json();
+                
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <h2>📊 Cache İstatistikleri</h2>
+                    <div class="stats">
+                        <p><strong>Toplam Kayıt:</strong> ${result.cache.total} adet</p>
+                        <p><strong>Arama Sonuçları:</strong> ${result.cache.searches} adet</p>
+                        <p><strong>Film Bannerları:</strong> ${result.cache.movies} adet</p>
+                    </div>
+                `;
+            } catch (error) {
+                const resultDiv = document.getElementById('result');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `<h2>❌ Hata!</h2><p>${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

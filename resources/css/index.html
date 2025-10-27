@@ -63,6 +63,25 @@
                         </span>
                     </button>
                 </div>
+                
+                <!-- Boyut Filtresi -->
+                <div class="size-filter-container">
+                    <label for="sizeFilter" class="size-filter-label">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 11L12 14L22 4M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Görüntü Boyutu:
+                    </label>
+                    <select id="sizeFilter" class="size-filter-select">
+                        <option value="default">Varsayılan (1920-2400 x 700-1400)</option>
+                        <option value="1920x1080">Full HD (1920x1080)</option>
+                        <option value="2560x1440">2K (2560x1440)</option>
+                        <option value="3840x2160">4K (3840x2160)</option>
+                        <option value="1280x720">HD (1280x720)</option>
+                        <option value="custom">Tüm Boyutlar</option>
+                    </select>
+                </div>
+                
                 <p class="search-hint">
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

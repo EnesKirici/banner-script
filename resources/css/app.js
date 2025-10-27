@@ -1,6 +1,7 @@
 // DOM Elements
 const movieInput = document.getElementById('movieInput');
 const searchBtn = document.getElementById('searchBtn');
+const sizeFilter = document.getElementById('sizeFilter');
 const statusSection = document.getElementById('statusSection');
 const statusTitle = document.getElementById('statusTitle');
 const statusMessage = document.getElementById('statusMessage');
@@ -227,7 +228,11 @@ async function downloadBannersForMovie(movieId, movieTitle) {
     currentScrollCount = 1; // İlk yüklemede 1 kez kaydır
     loadedImageUrls.clear(); // Önceki görselleri temizle
     
-    showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için bannerlar indiriliyor...`);
+    // Seçilen boyut filtresini al
+    const selectedSize = sizeFilter.value;
+    console.log(`📐 Frontend - Seçilen boyut filtresi: "${selectedSize}"`);
+    
+    showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için bannerlar indiriliyor... (Boyut: ${selectedSize})`);
     simulateProgress();
 
     try {
@@ -239,9 +244,12 @@ async function downloadBannersForMovie(movieId, movieTitle) {
             },
             body: JSON.stringify({ 
                 movieId: movieId,
-                movieTitle: movieTitle 
+                movieTitle: movieTitle,
+                sizeFilter: selectedSize
             })
         });
+
+        console.log(`📡 API'ye gönderilen veri:`, { movieId, movieTitle, sizeFilter: selectedSize });
 
         if (!response.ok) {
             throw new Error('İndirme işlemi başarısız oldu');
@@ -438,6 +446,9 @@ async function loadMoreImages() {
     currentScrollCount += 1;
     console.log(`Loading more images with ${currentScrollCount} scrolls for ${currentMovieTitle} (${selectedMovieId})`);
     
+    // Seçilen boyut filtresini al
+    const selectedSize = sizeFilter.value;
+    
     try {
         const response = await fetch('/api/load-more-images', {
             method: 'POST',
@@ -447,7 +458,8 @@ async function loadMoreImages() {
             body: JSON.stringify({ 
                 movieId: selectedMovieId,
                 movieTitle: currentMovieTitle,
-                scrollCount: currentScrollCount
+                scrollCount: currentScrollCount,
+                sizeFilter: selectedSize
             })
         });
 

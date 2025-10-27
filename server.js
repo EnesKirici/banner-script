@@ -14,6 +14,11 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static('resources/css'));
 
+// Cache yönetim sayfası
+app.get('/clear-cache', (req, res) => {
+    res.sendFile(path.join(__dirname, 'clear-cache.html'));
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -71,16 +76,17 @@ app.post('/api/search-movies', async (req, res) => {
 
 // Download banners by movie ID endpoint
 app.post('/api/download-by-id', async (req, res) => {
-    const { movieId, movieTitle } = req.body;
+    const { movieId, movieTitle, sizeFilter } = req.body;
     
     if (!movieId || !movieTitle) {
         return res.status(400).json({ error: 'Film ID ve başlığı gerekli' });
     }
 
-    console.log(`\n🎬 ID ile istek alındı: ${movieTitle} (${movieId})\n`);
+    console.log(`\n🎬 ID ile istek alındı: ${movieTitle} (${movieId})`);
+    console.log(`📐 Boyut filtresi: ${sizeFilter || 'default'}\n`);
 
     try {
-        const result = await downloadBannersByMovieId(movieId, movieTitle);
+        const result = await downloadBannersByMovieId(movieId, movieTitle, sizeFilter);
 
         console.log(`\n✅ API Response: ${result.totalImages} görsel bulundu${result.fromCache ? ' (Cache\'den)' : ''}\n`);
 
@@ -158,16 +164,17 @@ app.post('/api/download', async (req, res) => {
 
 // Load more images endpoint
 app.post('/api/load-more-images', async (req, res) => {
-    const { movieId, movieTitle } = req.body;
+    const { movieId, movieTitle, sizeFilter } = req.body;
     
     if (!movieId || !movieTitle) {
         return res.status(400).json({ error: 'Film ID ve başlığı gerekli' });
     }
 
-    console.log(`\n📄 Daha fazla yükle isteği: ${movieTitle} (${movieId})\n`);
+    console.log(`\n📄 Daha fazla yükle isteği: ${movieTitle} (${movieId})`);
+    console.log(`📐 Boyut filtresi: ${sizeFilter || 'default'}\n`);
 
     try {
-        const result = await loadMoreImages(movieId, movieTitle);
+        const result = await loadMoreImages(movieId, movieTitle, sizeFilter);
 
         console.log(`\n✅ ${result.totalImages} görsel bulundu\n`);
 
