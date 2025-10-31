@@ -30,6 +30,60 @@ let activeSource = 'imdb'; // Varsayılan kaynak IMDb
 let progressInterval = null; // Progress bar interval referansı
 
 // ============================================
+// AUTH - Session Check on Page Load
+// ============================================
+async function checkAuthSession() {
+    const sessionToken = localStorage.getItem('auth_session') || getCookie('sessionToken');
+    
+    if (!sessionToken) {
+        // Token yoksa login sayfasına yönlendir
+        console.warn('⚠️ Oturum bulunamadı, login sayfasına yönlendiriliyor...');
+        window.location.href = '/auth/login.html';
+        return false;
+    }
+    
+    try {
+        // Token'ı doğrula
+        const response = await fetch('/auth/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.success) {
+            // Token geçersiz, login sayfasına yönlendir
+            console.warn('⚠️ Geçersiz oturum, login sayfasına yönlendiriliyor...');
+            localStorage.removeItem('auth_session');
+            deleteCookie('sessionToken');
+            window.location.href = '/auth/login.html';
+            return false;
+        }
+        
+        // Oturum geçerli
+        console.log('✅ Oturum doğrulandı:', data.data.user.username);
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Oturum kontrolü hatası:', error);
+        window.location.href = '/auth/login.html';
+        return false;
+    }
+}
+
+// Cookie yardımcı fonksiyonları
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+}
+
+function deleteCookie(name) {
+    document.cookie = `${name}=; path=/; max-age=0`;
+}
+
+// ============================================
 // AUTH - Logout Function
 // ============================================
 logoutBtn.addEventListener('click', async () => {
@@ -132,15 +186,25 @@ async function searchAndShowResults(movieName) {
         // Aktif kaynağa göre endpoint seç
         const endpoint = activeSource === 'imdb' ? '/api/search-movies' : '/api/tmdb-search';
         
+        // Session token'ı al
+        const sessionToken = localStorage.getItem('auth_session');
+        
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
             },
             body: JSON.stringify({ query: movieName })
         });
 
         if (!response.ok) {
+            const errorData = await response.json();
+            if (errorData.requiresAuth) {
+                // Auth hatası, login sayfasına yönlendir
+                window.location.href = '/auth/login.html';
+                return;
+            }
             throw new Error('Arama başarısız oldu');
         }
 
@@ -317,6 +381,9 @@ async function downloadBannersForMovie(movieId, movieTitle, mediaType) {
         // Aktif kaynağa göre endpoint seç
         const endpoint = activeSource === 'imdb' ? '/api/download-by-id' : '/api/tmdb-download-by-id';
         
+        // Session token'ı al
+        const sessionToken = localStorage.getItem('auth_session');
+        
         // Request body'yi hazırla
         const requestBody = { 
             movieId: movieId,
@@ -334,6 +401,7 @@ async function downloadBannersForMovie(movieId, movieTitle, mediaType) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
             },
             body: JSON.stringify(requestBody)
         });
@@ -341,6 +409,12 @@ async function downloadBannersForMovie(movieId, movieTitle, mediaType) {
         console.log(`📡 ${sourceName} API'ye gönderilen veri:`, { movieId, movieTitle, sizeFilter: selectedSize });
 
         if (!response.ok) {
+            const errorData = await response.json();
+            if (errorData.requiresAuth) {
+                // Auth hatası, login sayfasına yönlendir
+                window.location.href = '/auth/login.html';
+                return;
+            }
             throw new Error('İndirme işlemi başarısız oldu');
         }
 
@@ -570,11 +644,15 @@ async function loadMoreImages() {
     // Seçilen boyut filtresini al
     const selectedSize = sizeFilter.value;
     
+    // Session token'ı al
+    const sessionToken = localStorage.getItem('auth_session');
+    
     try {
         const response = await fetch('/api/load-more-images', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionToken}`
             },
             body: JSON.stringify({ 
                 movieId: selectedMovieId,
@@ -585,6 +663,12 @@ async function loadMoreImages() {
         });
 
         if (!response.ok) {
+            const errorData = await response.json();
+            if (errorData.requiresAuth) {
+                // Auth hatası, login sayfasına yönlendir
+                window.location.href = '/auth/login.html';
+                return;
+            }
             const errorText = await response.text();
             console.error('Server error:', errorText);
             throw new Error('Daha fazla görsel yüklenemedi');
@@ -825,6 +909,13 @@ function showNotification(message, type = 'info') {
     // Simple console notification for now
     console.log(`[${type.toUpperCase()}]: ${message}`);
     
+    // Eski bildirimleri kaldır
+    const existingToasts = document.querySelectorAll('.toast');
+    existingToasts.forEach(toast => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 100);
+    });
+    
     // Create toast notification
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
@@ -848,7 +939,16 @@ function showNotification(message, type = 'info') {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // İlk önce auth kontrolü yap
+    const isAuthenticated = await checkAuthSession();
+    
+    if (!isAuthenticated) {
+        // Auth başarısız, sayfa yüklenmesin
+        return;
+    }
+    
+    // Auth başarılı, sayfa öğelerini yükle
     // Focus on input
     movieInput.focus();
     
@@ -875,8 +975,22 @@ document.addEventListener('DOMContentLoaded', () => {
 // Fetch TMDB popular lists from server
 async function fetchPopularLists() {
     try {
-        const res = await fetch('/api/tmdb-popular');
+        // Session token'ı al
+        const sessionToken = localStorage.getItem('auth_session');
+        
+        const res = await fetch('/api/tmdb-popular', {
+            headers: {
+                'Authorization': `Bearer ${sessionToken}`
+            }
+        });
+        
         if (!res.ok) {
+            const errorData = await res.json();
+            if (errorData.requiresAuth) {
+                // Auth hatası, login sayfasına yönlendir
+                window.location.href = '/auth/login.html';
+                return;
+            }
             throw new Error('TMDB popular endpoint error');
         }
         const data = await res.json();

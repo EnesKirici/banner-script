@@ -21,32 +21,36 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(securityHeaders);
 
-// Static files - auth folder public erişim için
-app.use('/auth', express.static(path.join(__dirname, 'auth')));
-app.use(express.static('resources/css'));
-
-// Auth routes with rate limiting
+// Auth routes with rate limiting - PUBLIC ACCESS (login için gerekli)
 app.use('/auth', corsMiddleware);
 app.use('/auth/login', rateLimiter.middleware(5, 15 * 60 * 1000));
 app.use('/auth', authRoutes);
+
+// Static files - SADECE auth klasörü public erişim için (login sayfası)
+app.use('/auth', express.static(path.join(__dirname, 'auth')));
+
+// TÜM DİĞER ROUTE'LAR İÇİN AUTHENTİCATİON GEREKLİ
+// Static files - AUTH GEREKTİRİR
+app.use('/resources', requireAuth, express.static('resources'));
+app.use('/banners', requireAuth, express.static(path.join(__dirname, 'banners')));
 
 // Ana sayfa - AUTH GEREKTİRİR
 app.get('/', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'resources/css/index.html'));
 });
 
-// Cache yönetim sayfası
-app.get('/clear-cache', (req, res) => {
+// Cache yönetim sayfası - AUTH GEREKTİRİR
+app.get('/clear-cache', requireAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'clear-cache.html'));
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Health check endpoint - AUTH GEREKTİRİR
+app.get('/api/health', requireAuth, (req, res) => {
     res.json({ status: 'ok' });
 });
 
-// Cache istatistikleri endpoint
-app.get('/api/cache/stats', (req, res) => {
+// Cache istatistikleri endpoint - AUTH GEREKTİRİR
+app.get('/api/cache/stats', requireAuth, (req, res) => {
     const stats = getCacheStats();
     res.json({
         success: true,
@@ -54,8 +58,8 @@ app.get('/api/cache/stats', (req, res) => {
     });
 });
 
-// Cache temizleme endpoint
-app.post('/api/cache/clear', (req, res) => {
+// Cache temizleme endpoint - AUTH GEREKTİRİR
+app.post('/api/cache/clear', requireAuth, (req, res) => {
     clearCache();
     res.json({
         success: true,
@@ -63,8 +67,8 @@ app.post('/api/cache/clear', (req, res) => {
     });
 });
 
-// Search movies endpoint - birden fazla sonuç döndür
-app.post('/api/search-movies', async (req, res) => {
+// Search movies endpoint - AUTH GEREKTİRİR
+app.post('/api/search-movies', requireAuth, async (req, res) => {
     const { query } = req.body;
     
     if (!query) {
@@ -95,8 +99,8 @@ app.post('/api/search-movies', async (req, res) => {
     }
 });
 
-// Download banners by movie ID endpoint
-app.post('/api/download-by-id', async (req, res) => {
+// Download banners by movie ID endpoint - AUTH GEREKTİRİR
+app.post('/api/download-by-id', requireAuth, async (req, res) => {
     const { movieId, movieTitle, sizeFilter } = req.body;
     
     if (!movieId || !movieTitle) {
@@ -139,8 +143,8 @@ app.post('/api/download-by-id', async (req, res) => {
     }
 });
 
-// Load more images endpoint
-app.post('/api/load-more-images', async (req, res) => {
+// Load more images endpoint - AUTH GEREKTİRİR
+app.post('/api/load-more-images', requireAuth, async (req, res) => {
     const { movieId, movieTitle, sizeFilter } = req.body;
     
     if (!movieId || !movieTitle) {
@@ -185,8 +189,8 @@ app.post('/api/load-more-images', async (req, res) => {
 
 // ==================== TMDB API ENDPOINTS ====================
 
-// TMDB - Film arama endpoint
-app.post('/api/tmdb-search', async (req, res) => {
+// TMDB - Film arama endpoint - AUTH GEREKTİRİR
+app.post('/api/tmdb-search', requireAuth, async (req, res) => {
     const { query } = req.body;
     
     if (!query) {
@@ -218,8 +222,8 @@ app.post('/api/tmdb-search', async (req, res) => {
     }
 });
 
-// TMDB - Movie ID ile görsel indirme endpoint
-app.post('/api/tmdb-download-by-id', async (req, res) => {
+// TMDB - Movie ID ile görsel indirme endpoint - AUTH GEREKTİRİR
+app.post('/api/tmdb-download-by-id', requireAuth, async (req, res) => {
     const { movieId, movieTitle, sizeFilter, mediaType } = req.body;
     
     if (!movieId || !movieTitle) {
@@ -264,8 +268,8 @@ app.post('/api/tmdb-download-by-id', async (req, res) => {
     }
 });
 
-// TMDB - Daha fazla görsel yükle (TMDB'de geçerli değil ama API uyumluluğu için)
-app.post('/api/tmdb-load-more', async (req, res) => {
+// TMDB - Daha fazla görsel yükle (TMDB'de geçerli değil ama API uyumluluğu için) - AUTH GEREKTİRİR
+app.post('/api/tmdb-load-more', requireAuth, async (req, res) => {
     const { movieId, movieTitle, sizeFilter, mediaType } = req.body;
     
     console.log(`\n📄 TMDB - Daha fazla yükle isteği (geçerli değil): ${movieTitle} (${mediaType || 'movie'})\n`);
@@ -290,8 +294,8 @@ app.post('/api/tmdb-load-more', async (req, res) => {
     }
 });
 
-// TMDB - Popüler Filmler ve Diziler (cache'li, frontend sol bar için)
-app.get('/api/tmdb-popular', async (req, res) => {
+// TMDB - Popüler Filmler ve Diziler (cache'li, frontend sol bar için) - AUTH GEREKTİRİR
+app.get('/api/tmdb-popular', requireAuth, async (req, res) => {
     try {
         const movies = await getPopularMoviesTMDB(8);
         const tv = await getPopularTVTMDB(8);

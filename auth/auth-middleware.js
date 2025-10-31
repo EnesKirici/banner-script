@@ -79,18 +79,35 @@ function optionalAuthMiddleware(req, res, next) {
 
 /**
  * Middleware to redirect to login if not authenticated (for HTML pages)
+ * For API endpoints, returns JSON error
  */
 function requireAuth(req, res, next) {
     try {
         const token = req.cookies?.sessionToken || req.query.sessionToken;
 
         if (!token) {
+            // API endpoint için JSON döndür, HTML için redirect
+            if (req.path.startsWith('/api/')) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Yetkilendirme gerekli. Lütfen giriş yapın.',
+                    requiresAuth: true
+                });
+            }
             return res.redirect('/auth/login.html');
         }
 
         const session = authDb.verifySession(token);
 
         if (!session) {
+            // API endpoint için JSON döndür, HTML için redirect
+            if (req.path.startsWith('/api/')) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Oturum süresi dolmuş. Lütfen tekrar giriş yapın.',
+                    requiresAuth: true
+                });
+            }
             return res.redirect('/auth/login.html');
         }
 
@@ -102,6 +119,13 @@ function requireAuth(req, res, next) {
         next();
     } catch (error) {
         console.error('Require auth error:', error);
+        // API endpoint için JSON döndür, HTML için redirect
+        if (req.path.startsWith('/api/')) {
+            return res.status(500).json({
+                success: false,
+                message: 'Sunucu hatası'
+            });
+        }
         res.redirect('/auth/login.html');
     }
 }
