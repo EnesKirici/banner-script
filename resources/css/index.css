@@ -112,8 +112,89 @@ body::before {
     max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
+    margin-left: 280px; /* Sidebar için alan bırak ve ortala */
     position: relative;
     z-index: 1;
+}
+
+/* Sidebar - Fixed sol tarafta */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 260px;
+    height: 100vh;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    padding: 1.5rem 1rem;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.sidebar-section + .sidebar-section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+.sidebar h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    letter-spacing: 0.3px;
+}
+
+.popular-list {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: transparent;
+    border: 1px solid transparent;
+}
+
+.sidebar-item:hover {
+    background: rgba(0,212,255,0.05);
+    border-color: rgba(0,212,255,0.2);
+    transform: translateX(4px);
+}
+
+.sidebar-item .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+}
+
+.sidebar-item .meta .title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.sidebar-item .meta .sub {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 /* Header Styles */
@@ -1526,8 +1607,13 @@ body::before {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    .sidebar {
+        display: none; /* Mobilde sidebar gizle */
+    }
+    
     .container {
         padding: 1rem;
+        margin-left: auto; /* Mobilde ortala */
     }
 
     .header {

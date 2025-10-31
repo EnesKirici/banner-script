@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
-import { searchMoviesTMDB, getMovieImagesTMDB, loadMoreImagesTMDB } from './tmdb-api.js';
+import { searchMoviesTMDB, getMovieImagesTMDB, loadMoreImagesTMDB, getPopularMoviesTMDB, getPopularTVTMDB } from './tmdb-api.js';
 import { getCacheStats, clearCache } from './cache.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -244,17 +244,18 @@ app.post('/api/tmdb-search', async (req, res) => {
 
 // TMDB - Movie ID ile görsel indirme endpoint
 app.post('/api/tmdb-download-by-id', async (req, res) => {
-    const { movieId, movieTitle, sizeFilter } = req.body;
+    const { movieId, movieTitle, sizeFilter, mediaType } = req.body;
     
     if (!movieId || !movieTitle) {
         return res.status(400).json({ error: 'Film ID ve başlığı gerekli' });
     }
 
     console.log(`\n🎬 TMDB - ID ile istek alındı: ${movieTitle} (${movieId})`);
-    console.log(`📐 Boyut filtresi: ${sizeFilter || 'default'}\n`);
+    console.log(`📐 Boyut filtresi: ${sizeFilter || 'default'}`);
+    console.log(`📺 Medya tipi: ${mediaType || 'movie'}\n`);
 
     try {
-        const result = await getMovieImagesTMDB(movieId, movieTitle, sizeFilter);
+        const result = await getMovieImagesTMDB(movieId, movieTitle, sizeFilter, mediaType || 'movie');
 
         console.log(`\n✅ TMDB API Response: ${result.totalImages} görsel bulundu${result.fromCache ? ' (Cache\'den)' : ''}\n`);
 
@@ -289,12 +290,12 @@ app.post('/api/tmdb-download-by-id', async (req, res) => {
 
 // TMDB - Daha fazla görsel yükle (TMDB'de geçerli değil ama API uyumluluğu için)
 app.post('/api/tmdb-load-more', async (req, res) => {
-    const { movieId, movieTitle, sizeFilter } = req.body;
+    const { movieId, movieTitle, sizeFilter, mediaType } = req.body;
     
-    console.log(`\n📄 TMDB - Daha fazla yükle isteği (geçerli değil): ${movieTitle}\n`);
+    console.log(`\n📄 TMDB - Daha fazla yükle isteği (geçerli değil): ${movieTitle} (${mediaType || 'movie'})\n`);
 
     try {
-        const result = await loadMoreImagesTMDB(movieId, movieTitle, sizeFilter);
+        const result = await loadMoreImagesTMDB(movieId, movieTitle, sizeFilter, mediaType || 'movie');
 
         res.json({
             success: true,
@@ -310,6 +311,23 @@ app.post('/api/tmdb-load-more', async (req, res) => {
             error: 'TMDB daha fazla görsel yükleme hatası',
             details: error.message 
         });
+    }
+});
+
+// TMDB - Popüler Filmler ve Diziler (cache'li, frontend sol bar için)
+app.get('/api/tmdb-popular', async (req, res) => {
+    try {
+        const movies = await getPopularMoviesTMDB(8);
+        const tv = await getPopularTVTMDB(8);
+
+        res.json({
+            success: true,
+            movies,
+            tv
+        });
+    } catch (error) {
+        console.error('❌ TMDB popular fetch error:', error.message);
+        res.status(500).json({ error: 'TMDB popüler verisi alınamadı', details: error.message });
     }
 });
 

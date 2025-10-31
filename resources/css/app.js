@@ -14,6 +14,8 @@ const movieSelectionSection = document.getElementById('movieSelectionSection');
 const movieSelectionGrid = document.getElementById('movieSelectionGrid');
 const imdbSourceBtn = document.getElementById('imdbSource');
 const tmdbSourceBtn = document.getElementById('tmdbSource');
+const popularMoviesList = document.getElementById('popularMoviesList');
+const popularTVList = document.getElementById('popularTVList');
 
 // State
 let isProcessing = false;
@@ -21,6 +23,7 @@ let downloadedImages = [];
 let movieSearchResults = [];
 let selectedMovieId = null;
 let currentMovieTitle = null;
+let currentMovieMediaType = null; // movie veya tv (TMDB için)
 let loadedImageUrls = new Set(); // Yüklenen görsel URL'lerini takip et (tekrar önleme)
 let activeSource = 'imdb'; // Varsayılan kaynak IMDb
 
@@ -247,14 +250,14 @@ async function handleMovieSelection(movie, cardElement) {
     cardElement.classList.add('selected');
     selectedMovieId = movie.movieId;
     
-    // Kısa bekleme sonrası banner indir
+    // Kısa bekleme sonrası banner indir (mediaType'ı da gönder)
     setTimeout(() => {
-        downloadBannersForMovie(movie.movieId, movie.movieTitle);
+        downloadBannersForMovie(movie.movieId, movie.movieTitle, movie.mediaType);
     }, 500);
 }
 
 // Seçilen film için banner indir
-async function downloadBannersForMovie(movieId, movieTitle) {
+async function downloadBannersForMovie(movieId, movieTitle, mediaType) {
     hideMovieSelection();
     isProcessing = true;
     searchBtn.disabled = true;
@@ -262,6 +265,7 @@ async function downloadBannersForMovie(movieId, movieTitle) {
     // State'i güncelle ve sıfırla
     selectedMovieId = movieId;
     currentMovieTitle = movieTitle;
+    currentMovieMediaType = mediaType || 'movie'; // TMDB için mediaType'ı sakla
     loadedImageUrls.clear(); // Önceki görselleri temizle
     
     // Seçilen boyut filtresini al
@@ -269,6 +273,7 @@ async function downloadBannersForMovie(movieId, movieTitle) {
     const sourceName = activeSource === 'imdb' ? 'IMDb' : 'TMDB API';
     console.log(`📐 Frontend - Seçilen boyut filtresi: "${selectedSize}"`);
     console.log(`📡 Aktif kaynak: ${sourceName}`);
+    console.log(`🎬 Media Type: ${mediaType || 'movie'}`);
     
     showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için ${sourceName} üzerinden bannerlar indiriliyor... (Boyut: ${selectedSize})`);
     simulateProgress();
@@ -277,17 +282,25 @@ async function downloadBannersForMovie(movieId, movieTitle) {
         // Aktif kaynağa göre endpoint seç
         const endpoint = activeSource === 'imdb' ? '/api/download-by-id' : '/api/tmdb-download-by-id';
         
+        // Request body'yi hazırla
+        const requestBody = { 
+            movieId: movieId,
+            movieTitle: movieTitle,
+            sizeFilter: selectedSize
+        };
+        
+        // TMDB için mediaType ekle
+        if (activeSource === 'tmdb' && mediaType) {
+            requestBody.mediaType = mediaType;
+        }
+        
         // Yeni endpoint ile movieId kullanarak indir
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ 
-                movieId: movieId,
-                movieTitle: movieTitle,
-                sizeFilter: selectedSize
-            })
+            body: JSON.stringify(requestBody)
         });
 
         console.log(`📡 ${sourceName} API'ye gönderilen veri:`, { movieId, movieTitle, sizeFilter: selectedSize });
@@ -504,7 +517,8 @@ async function loadMoreImages() {
             body: JSON.stringify({ 
                 movieId: selectedMovieId,
                 movieTitle: currentMovieTitle,
-                sizeFilter: selectedSize
+                sizeFilter: selectedSize,
+                mediaType: currentMovieMediaType // TMDB için mediaType gönder
             })
         });
 
@@ -787,7 +801,49 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize snow effect
     initSnowEffect();
+    // Load TMDB popular lists for sidebar
+    fetchPopularLists();
+    // Refresh every hour
+    setInterval(fetchPopularLists, 3600 * 1000);
 });
+
+// Fetch TMDB popular lists from server
+async function fetchPopularLists() {
+    try {
+        const res = await fetch('/api/tmdb-popular');
+        if (!res.ok) {
+            throw new Error('TMDB popular endpoint error');
+        }
+        const data = await res.json();
+        if (data && data.movies && data.tv) {
+            renderPopularList(popularMoviesList, data.movies, 'movie');
+            renderPopularList(popularTVList, data.tv, 'tv');
+        }
+    } catch (err) {
+        console.error('Popular fetch error:', err);
+    }
+}
+
+function renderPopularList(container, items, mediaType) {
+    if (!container) return;
+    container.innerHTML = '';
+    items.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'sidebar-item';
+        div.innerHTML = `
+            <div class="meta">
+                <div class="title">${item.movieTitle}</div>
+                <div class="sub">${item.year || ''} • ⭐ ${item.voteAverage ? item.voteAverage.toFixed(1) : 'N/A'}</div>
+            </div>
+        `;
+        div.addEventListener('click', (e) => {
+            // Switch to TMDB source and download
+            switchSource('tmdb');
+            downloadBannersForMovie(item.movieId, item.movieTitle, mediaType);
+        });
+        container.appendChild(div);
+    });
+}
 
 // ==================== SNOW EFFECT CODE ====================
 
