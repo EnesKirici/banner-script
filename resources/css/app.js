@@ -968,8 +968,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Refresh every hour
     setInterval(fetchPopularLists, 3600 * 1000);
     
-    // Initialize theme system
-    initThemeSystem();
+    // Initialize settings system
+    initSettingsSystem();
 });
 
 // Fetch TMDB popular lists from server
@@ -1049,51 +1049,30 @@ let snowState = {
 // Initialize Snow Effect
 function initSnowEffect() {
     const snowContainer = document.getElementById('snowContainer');
-    const snowToggle = document.getElementById('snowToggle');
     
-    if (!snowContainer || !snowToggle) {
-        console.warn('Snow effect elements not found');
+    if (!snowContainer) {
+        console.warn('Snow container not found');
         return;
     }
     
-    // Load saved state from localStorage
-    const savedState = localStorage.getItem('snowEffectEnabled');
-    if (savedState !== null) {
-        snowState.isActive = savedState === 'true';
+    // Load saved state from localStorage (check appSettings first)
+    const appSettingsStr = localStorage.getItem('appSettings');
+    if (appSettingsStr) {
+        const appSettings = JSON.parse(appSettingsStr);
+        if (appSettings.snowEffect !== undefined) {
+            snowState.isActive = appSettings.snowEffect;
+        }
+    } else {
+        // Fallback to old localStorage key
+        const savedState = localStorage.getItem('snowEffectEnabled');
+        if (savedState !== null) {
+            snowState.isActive = savedState === 'true';
+        }
     }
     
-    // Set initial state
-    updateSnowToggleButton();
-    
+    // Start snow effect if enabled
     if (snowState.isActive) {
         startSnowEffect();
-    }
-    
-    // Toggle button click handler
-    snowToggle.addEventListener('click', () => {
-        snowState.isActive = !snowState.isActive;
-        localStorage.setItem('snowEffectEnabled', snowState.isActive);
-        updateSnowToggleButton();
-        
-        if (snowState.isActive) {
-            startSnowEffect();
-            showNotification('❄️ Kar efekti açıldı', 'info');
-        } else {
-            stopSnowEffect();
-            showNotification('☃️ Kar efekti kapatıldı', 'info');
-        }
-    });
-}
-
-// Update toggle button appearance
-function updateSnowToggleButton() {
-    const snowToggle = document.getElementById('snowToggle');
-    if (snowState.isActive) {
-        snowToggle.classList.add('active');
-        snowToggle.setAttribute('aria-label', 'Kar efektini kapat');
-    } else {
-        snowToggle.classList.remove('active');
-        snowToggle.setAttribute('aria-label', 'Kar efektini aç');
     }
 }
 
@@ -1189,72 +1168,124 @@ if (prefersReducedMotion()) {
 
 // ==================== END SNOW EFFECT CODE ====================
 
-// ==================== THEME SYSTEM CODE ====================
+// ==================== SETTINGS MODAL SYSTEM ====================
 
-// Theme System
-const themeToggle = document.getElementById('themeToggle');
-const themePanel = document.getElementById('themePanel');
-const closeThemePanel = document.getElementById('closethemePanel');
-const themeOptions = document.querySelectorAll('.theme-option');
+// Settings Modal Elements
+const settingsToggle = document.getElementById('settingsToggle');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettings = document.getElementById('closeSettings');
+const settingsOverlay = settingsModal.querySelector('.settings-overlay');
+const settingsNavItems = document.querySelectorAll('.settings-nav-item');
+const settingsSections = document.querySelectorAll('.settings-section');
+const themeCards = document.querySelectorAll('.theme-option-card');
 
+// Settings State
 let currentTheme = 'default';
+let settingsState = {
+    snowEffect: true,
+    animations: true,
+    defaultFullHD: false,
+    default4K: false,
+    autoZip: false
+};
 
-// Initialize Theme System
-function initThemeSystem() {
-    // Load saved theme from localStorage
+// Initialize Settings System
+function initSettingsSystem() {
+    // Load saved theme
     const savedTheme = localStorage.getItem('selectedTheme');
     if (savedTheme) {
         applyTheme(savedTheme);
     }
     
-    // Theme toggle button click handler
-    themeToggle.addEventListener('click', () => {
-        themePanel.classList.toggle('active');
-        themeToggle.classList.toggle('active');
+    // Load saved settings
+    loadSettings();
+    
+    // Settings toggle button
+    settingsToggle.addEventListener('click', () => {
+        openSettingsModal();
     });
     
-    // Close button handler
-    closeThemePanel.addEventListener('click', () => {
-        themePanel.classList.remove('active');
-        themeToggle.classList.remove('active');
+    // Close button
+    closeSettings.addEventListener('click', () => {
+        closeSettingsModal();
     });
     
-    // Theme option click handlers
-    themeOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            const theme = option.dataset.theme;
-            applyTheme(theme);
-            
-            // Close panel after selection
-            setTimeout(() => {
-                themePanel.classList.remove('active');
-                themeToggle.classList.remove('active');
-            }, 300);
+    // Overlay click to close
+    settingsOverlay.addEventListener('click', () => {
+        closeSettingsModal();
+    });
+    
+    // ESC key to close
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && settingsModal.classList.contains('active')) {
+            closeSettingsModal();
+        }
+    });
+    
+    // Navigation items
+    settingsNavItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const section = item.dataset.section;
+            switchSettingsSection(section);
         });
     });
     
-    // Click outside to close
-    document.addEventListener('click', (e) => {
-        if (!themePanel.contains(e.target) && !themeToggle.contains(e.target)) {
-            themePanel.classList.remove('active');
-            themeToggle.classList.remove('active');
+    // Theme cards
+    themeCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const theme = card.dataset.theme;
+            applyTheme(theme);
+        });
+    });
+    
+    // Toggle switches
+    setupToggleSwitches();
+}
+
+function openSettingsModal() {
+    settingsModal.classList.add('active');
+    settingsToggle.classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeSettingsModal() {
+    settingsModal.classList.remove('active');
+    settingsToggle.classList.remove('active');
+    document.body.style.overflow = '';
+}
+
+function switchSettingsSection(section) {
+    // Update nav items
+    settingsNavItems.forEach(item => {
+        if (item.dataset.section === section) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+    
+    // Update sections
+    settingsSections.forEach(sectionEl => {
+        if (sectionEl.id === `${section}-section`) {
+            sectionEl.classList.add('active');
+        } else {
+            sectionEl.classList.remove('active');
         }
     });
 }
 
-// Apply theme
 function applyTheme(theme) {
     currentTheme = theme;
     
     // Update body data-theme attribute
     document.body.setAttribute('data-theme', theme);
     
-    // Update active state on buttons
-    themeOptions.forEach(option => {
-        if (option.dataset.theme === theme) {
-            option.classList.add('active');
+    // Update active state on theme cards
+    themeCards.forEach(card => {
+        if (card.dataset.theme === theme) {
+            card.classList.add('active');
         } else {
-            option.classList.remove('active');
+            card.classList.remove('active');
         }
     });
     
@@ -1268,10 +1299,141 @@ function applyTheme(theme) {
         'neon-purple': 'Neon Mor',
         'neon-blue': 'Neon Mavi',
         'neon-white': 'Neon Beyaz',
-        'light': 'Beyaz (Light Mode)'
+        'light': 'Aydınlık'
     };
     
     showNotification(`🎨 Tema değiştirildi: ${themeNames[theme]}`, 'info');
 }
 
-// ==================== END THEME SYSTEM CODE ====================
+function setupToggleSwitches() {
+    // Snow effect toggle
+    const snowToggleSwitch = document.getElementById('snowToggleSwitch');
+    snowToggleSwitch.addEventListener('click', () => {
+        snowToggleSwitch.classList.toggle('active');
+        settingsState.snowEffect = snowToggleSwitch.classList.contains('active');
+        snowState.isActive = settingsState.snowEffect;
+        
+        if (settingsState.snowEffect) {
+            startSnowEffect();
+            showNotification('❄️ Kar efekti açıldı', 'info');
+        } else {
+            stopSnowEffect();
+            showNotification('☃️ Kar efekti kapatıldı', 'info');
+        }
+        
+        saveSettings();
+    });
+    
+    // Animations toggle
+    const animationsToggle = document.getElementById('animationsToggle');
+    animationsToggle.addEventListener('click', () => {
+        animationsToggle.classList.toggle('active');
+        settingsState.animations = animationsToggle.classList.contains('active');
+        
+        if (settingsState.animations) {
+            document.body.classList.remove('reduced-motion');
+            showNotification('🌊 Animasyonlar açıldı', 'info');
+        } else {
+            document.body.classList.add('reduced-motion');
+            showNotification('⏸️ Animasyonlar kapatıldı', 'info');
+        }
+        
+        saveSettings();
+    });
+    
+    // Default Full HD toggle
+    const defaultFullHDToggle = document.getElementById('defaultFullHDToggle');
+    defaultFullHDToggle.addEventListener('click', () => {
+        defaultFullHDToggle.classList.toggle('active');
+        settingsState.defaultFullHD = defaultFullHDToggle.classList.contains('active');
+        
+        if (settingsState.defaultFullHD) {
+            sizeFilter.value = '1920x1080';
+            showNotification('� Varsayılan boyut: Full HD', 'info');
+        } else {
+            sizeFilter.value = 'default';
+        }
+        
+        saveSettings();
+    });
+    
+    // Default 4K toggle
+    const default4KToggle = document.getElementById('default4KToggle');
+    default4KToggle.addEventListener('click', () => {
+        default4KToggle.classList.toggle('active');
+        settingsState.default4K = default4KToggle.classList.contains('active');
+        
+        if (settingsState.default4K) {
+            sizeFilter.value = '3840x2160';
+            showNotification('🎯 Varsayılan boyut: 4K', 'info');
+        } else {
+            sizeFilter.value = 'default';
+        }
+        
+        saveSettings();
+    });
+    
+    // Auto ZIP toggle
+    const autoZipToggle = document.getElementById('autoZipToggle');
+    autoZipToggle.addEventListener('click', () => {
+        autoZipToggle.classList.toggle('active');
+        settingsState.autoZip = autoZipToggle.classList.contains('active');
+        
+        if (settingsState.autoZip) {
+            showNotification('📦 Otomatik ZIP indirme açıldı', 'info');
+        } else {
+            showNotification('📦 Otomatik ZIP indirme kapatıldı', 'info');
+        }
+        
+        saveSettings();
+    });
+}
+
+function saveSettings() {
+    localStorage.setItem('appSettings', JSON.stringify(settingsState));
+}
+
+function loadSettings() {
+    const saved = localStorage.getItem('appSettings');
+    if (saved) {
+        settingsState = JSON.parse(saved);
+        
+        // Apply saved settings
+        const snowToggleSwitch = document.getElementById('snowToggleSwitch');
+        const animationsToggle = document.getElementById('animationsToggle');
+        const defaultFullHDToggle = document.getElementById('defaultFullHDToggle');
+        const default4KToggle = document.getElementById('default4KToggle');
+        const autoZipToggle = document.getElementById('autoZipToggle');
+        
+        if (settingsState.snowEffect) {
+            snowToggleSwitch.classList.add('active');
+            snowState.isActive = true;
+        } else {
+            snowToggleSwitch.classList.remove('active');
+            snowState.isActive = false;
+        }
+        
+        if (settingsState.animations) {
+            animationsToggle.classList.add('active');
+        } else {
+            animationsToggle.classList.remove('active');
+            document.body.classList.add('reduced-motion');
+        }
+        
+        if (settingsState.defaultFullHD) {
+            defaultFullHDToggle.classList.add('active');
+            sizeFilter.value = '1920x1080';
+        }
+        
+        if (settingsState.default4K) {
+            default4KToggle.classList.add('active');
+            sizeFilter.value = '3840x2160';
+        }
+        
+        if (settingsState.autoZip) {
+            autoZipToggle.classList.add('active');
+        }
+    }
+}
+
+// ==================== END SETTINGS MODAL SYSTEM ====================

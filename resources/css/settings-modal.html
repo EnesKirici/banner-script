@@ -3,82 +3,515 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Banner Downloader - Modern Film Banner Arayıcı</title>
-    <link rel="stylesheet" href="/resources/css/themes.css">
-    <link rel="stylesheet" href="/resources/css/index.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <title>Ayarlar Modal</title>
     <style>
-        /* Logout Button - Minimal & Fixed */
-        #logoutBtn {
+        /* Settings Modal Container */
+        .settings-modal {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 45px;
-            height: 45px;
-            background: rgba(239, 68, 68, 0.9);
-            border: 2px solid rgba(255, 255, 255, 0.2);
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .settings-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .settings-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(10px);
+            transition: opacity 0.3s ease;
+        }
+
+        .settings-modal.active .settings-overlay {
+            opacity: 1;
+        }
+
+        .settings-content {
+            position: relative;
+            max-width: 900px;
+            width: 90%;
+            height: 85vh;
+            margin: 0 auto;
+            top: 50%;
+            transform: translateY(-50%) scale(0.9);
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            border-radius: 24px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.8),
+                0 0 100px rgba(0, 212, 255, 0.2);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .settings-modal.active .settings-content {
+            transform: translateY(-50%) scale(1);
+        }
+
+        /* Settings Header */
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2rem 2.5rem;
+            background: var(--gradient-card);
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .settings-header h2 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 0;
+        }
+
+        .settings-header-icon {
+            font-size: 2rem;
+            animation: rotate-settings 3s linear infinite;
+        }
+
+        @keyframes rotate-settings {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .settings-close {
+            width: 48px;
+            height: 48px;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            z-index: 1000;
-            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
         }
-        #logoutBtn:hover {
-            background: rgba(220, 38, 38, 1);
-            transform: translateY(-2px) scale(1.05);
-            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
+
+        .settings-close:hover {
+            background: var(--gradient-primary);
+            border-color: var(--accent-cyan);
+            transform: rotate(90deg);
+            box-shadow: var(--shadow-glow);
         }
-        #logoutBtn svg {
-            width: 22px;
-            height: 22px;
-            stroke: white;
+
+        .settings-close svg {
+            width: 24px;
+            height: 24px;
+            color: var(--text-primary);
+        }
+
+        /* Settings Body */
+        .settings-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Settings Sidebar */
+        .settings-sidebar {
+            width: 240px;
+            background: var(--bg-secondary);
+            border-right: 2px solid var(--border-color);
+            padding: 2rem 0;
+            overflow-y: auto;
+        }
+
+        .settings-nav-item {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+            position: relative;
+        }
+
+        .settings-nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 0;
+            background: var(--gradient-primary);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .settings-nav-item:hover {
+            background: rgba(0, 212, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .settings-nav-item:hover::before {
+            width: 4px;
+            opacity: 1;
+        }
+
+        .settings-nav-item.active {
+            color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.1);
+            border-left-color: var(--accent-cyan);
+        }
+
+        .settings-nav-item.active::before {
+            width: 4px;
+            opacity: 1;
+        }
+
+        .settings-nav-icon {
+            font-size: 1.5rem;
+            width: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Settings Panel */
+        .settings-panel {
+            flex: 1;
+            padding: 2.5rem;
+            overflow-y: auto;
+        }
+
+        .settings-section {
+            display: none;
+            animation: fadeInUp 0.4s ease-out;
+        }
+
+        .settings-section.active {
+            display: block;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .settings-section-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .settings-section-description {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Settings Groups */
+        .settings-group {
+            margin-bottom: 2.5rem;
+        }
+
+        .settings-group-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Theme Options Grid */
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+
+        .theme-option-card {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .theme-option-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: var(--gradient-card);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .theme-option-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-cyan);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .theme-option-card:hover::before {
+            opacity: 1;
+        }
+
+        .theme-option-card.active {
+            border-color: var(--accent-cyan);
+            background: rgba(0, 212, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .theme-option-card * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .theme-preview-circle {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 0.75rem;
+            border-radius: 50%;
+            border: 3px solid var(--border-color);
             transition: transform 0.3s ease;
         }
-        #logoutBtn:hover svg {
-            transform: translateX(2px);
+
+        .theme-option-card:hover .theme-preview-circle {
+            transform: scale(1.1);
         }
+
+        .theme-option-card.active .theme-preview-circle {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+
+        /* Theme Preview Colors */
+        .theme-preview-default { background: linear-gradient(135deg, #00d4ff 0%, #00ffcc 100%); }
+        .theme-preview-pink { background: linear-gradient(135deg, #ff006e 0%, #ff66b2 100%); }
+        .theme-preview-purple { background: linear-gradient(135deg, #a855f7 0%, #d946ef 100%); }
+        .theme-preview-blue { background: linear-gradient(135deg, #0066ff 0%, #00ccff 100%); }
+        .theme-preview-white { background: linear-gradient(135deg, #ffffff 0%, #e0e0e0 100%); }
+        .theme-preview-light { background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%); }
+
+        .theme-option-name {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .theme-option-badge {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .theme-option-card.active .theme-option-badge {
+            color: var(--accent-cyan);
+            font-weight: 600;
+        }
+
+        /* Toggle Switch */
+        .settings-toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .settings-toggle-item:hover {
+            background: rgba(0, 212, 255, 0.05);
+            border-color: var(--accent-cyan);
+        }
+
+        .settings-toggle-info {
+            flex: 1;
+        }
+
+        .settings-toggle-label {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .settings-toggle-desc {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 56px;
+            height: 32px;
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch::before {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 24px;
+            height: 24px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .toggle-switch.active {
+            background: var(--gradient-primary);
+            border-color: var(--accent-cyan);
+        }
+
+        .toggle-switch.active::before {
+            left: 26px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+
+        /* Scrollbar */
+        .settings-sidebar::-webkit-scrollbar,
+        .settings-panel::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .settings-sidebar::-webkit-scrollbar-track,
+        .settings-panel::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .settings-sidebar::-webkit-scrollbar-thumb,
+        .settings-panel::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        .settings-sidebar::-webkit-scrollbar-thumb:hover,
+        .settings-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-            #logoutBtn {
+            .settings-content {
+                width: 95%;
+                height: 95vh;
+                border-radius: 16px;
+            }
+
+            .settings-header {
+                padding: 1.5rem;
+            }
+
+            .settings-header h2 {
+                font-size: 1.5rem;
+            }
+
+            .settings-body {
+                flex-direction: column;
+            }
+
+            .settings-sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 2px solid var(--border-color);
+                padding: 1rem 0;
+                overflow-x: auto;
+                display: flex;
+                white-space: nowrap;
+            }
+
+            .settings-nav-item {
+                padding: 1rem 1.5rem;
+                border-left: none;
+                border-bottom: 3px solid transparent;
+            }
+
+            .settings-nav-item.active {
+                border-left: none;
+                border-bottom-color: var(--accent-cyan);
+            }
+
+            .settings-panel {
+                padding: 1.5rem;
+            }
+
+            .settings-section-title {
+                font-size: 1.5rem;
+            }
+
+            .theme-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .settings-header h2 {
+                font-size: 1.25rem;
+            }
+
+            .settings-close {
                 width: 40px;
                 height: 40px;
-                top: 15px;
-                right: 15px;
             }
-            #logoutBtn svg {
-                width: 20px;
-                height: 20px;
+
+            .theme-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
 </head>
 <body>
-    <!-- Logout Button -->
-    <button id="logoutBtn" title="Oturumu Kapat" aria-label="Çıkış Yap">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V5C3 4.46957 3.21071 3.96086 3.58579 3.58579C3.96086 3.21071 4.46957 3 5 3H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M16 17L21 12L16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-    </button>
-
-    <!-- Snow Effect Container -->
-    <div id="snowContainer" class="snow-container"></div>
-    
-    <!-- Settings Button (Replaces Snow & Theme toggles) -->
-    <button id="settingsToggle" class="settings-toggle" title="Ayarlar">
-        <svg class="settings-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 1V3M12 21V23M4.22 4.22L5.64 5.64M18.36 18.36L19.78 19.78M1 12H3M21 12H23M4.22 19.78L5.64 18.36M18.36 5.64L19.78 4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span class="settings-toggle-text">⚙️</span>
-    </button>
-
-    <!-- Settings Modal (included from settings-modal.html) -->
+    <!-- Settings Modal Structure (This will be included in main HTML) -->
     <div id="settingsModal" class="settings-modal">
         <div class="settings-overlay"></div>
         <div class="settings-content">
@@ -342,181 +775,5 @@
             </div>
         </div>
     </div>
-
-    <!-- Left Sidebar: TMDB Popular Lists (Fixed) -->
-    <aside class="sidebar" id="tmdbSidebar">
-        <div class="sidebar-section">
-            <h4>🔥 En Popüler Filmler</h4>
-            <div id="popularMoviesList" class="popular-list">
-                <!-- Popüler filmler burada görünecek -->
-            </div>
-        </div>
-        <div class="sidebar-section">
-            <h4>📺 En Popüler Diziler</h4>
-            <div id="popularTVList" class="popular-list">
-                <!-- Popüler diziler burada görünecek -->
-            </div>
-        </div>
-    </aside>
-
-    <div class="container">
-        <!-- Header -->
-        <header class="header">
-            <div class="logo-container">
-                <div class="logo-icon">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6Z" stroke="currentColor" stroke-width="2"/>
-                        <path d="M8 4V20M16 4V20M4 12H20" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                </div>
-                <h1 class="logo-text">Banner<span>Downloader</span></h1>
-            </div>
-            <p class="subtitle">Film afişlerini ve bannerlarını hızlıca indirin</p>
-        </header>
-
-        <!-- Search Section -->
-        <section class="search-section">
-            <!-- Source Selector -->
-            <div class="source-selector">
-                <button id="imdbSource" class="source-btn active" data-source="imdb" title="IMDb - Internet Movie Database">
-                    <div class="source-icon imdb-logo">
-                        <svg viewBox="0 0 100 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="100" height="40" rx="4" fill="#F5C518"/>
-                            <path d="M18 10H22V30H18V10Z" fill="#000000"/>
-                            <path d="M26 10H32L35 20L38 10H44V30H40V16L37 26H33L30 16V30H26V10Z" fill="#000000"/>
-                            <path d="M48 10H54C58 10 60 12 60 16V24C60 28 58 30 54 30H48V10ZM52 14V26H54C55 26 56 25 56 24V16C56 15 55 14 54 14H52Z" fill="#000000"/>
-                            <path d="M64 10H70C74 10 76 12 76 16V18H72V16C72 15 71 14 70 14H68V26H70C71 26 72 25 72 24V21H68V18H76V24C76 28 74 30 70 30H64V10Z" fill="#000000"/>
-                            <path d="M78 26V30H82V26H78Z" fill="#000000"/>
-                        </svg>
-                    </div>
-                    <span class="source-name">IMDb</span>
-                    <span class="source-badge">Web Scraping</span>
-                </button>
-                <button id="tmdbSource" class="source-btn" data-source="tmdb" title="TMDB - The Movie Database">
-                    <div class="source-icon tmdb-logo">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190.24 81.52">
-                            <defs>
-                                <linearGradient id="tmdb-gradient" y1="40.76" x2="190.24" y2="40.76" gradientUnits="userSpaceOnUse">
-                                    <stop offset="0" stop-color="#90cea1"/>
-                                    <stop offset="0.56" stop-color="#3cbec9"/>
-                                    <stop offset="1" stop-color="#00b3e5"/>
-                                </linearGradient>
-                            </defs>
-                            <path fill="url(#tmdb-gradient)" d="M105.67,36.06h66.9A17.67,17.67,0,0,0,190.24,18.4h0A17.67,17.67,0,0,0,172.57.73h-66.9A17.67,17.67,0,0,0,88,18.4h0A17.67,17.67,0,0,0,105.67,36.06Zm-88,45h76.9A17.67,17.67,0,0,0,112.24,63.4h0A17.67,17.67,0,0,0,94.57,45.73H17.67A17.67,17.67,0,0,0,0,63.4H0A17.67,17.67,0,0,0,17.67,81.06ZM10.41,35.42h7.8V6.92h10.1V0H.31v6.9h10.1Zm28.1,0h7.8V8.25h.1l9,27.15h6l9.3-27.15h.1V35.4h7.8V0H66.76l-8.2,23.1h-.1L50.31,0H38.51ZM152.43,55.67a15.07,15.07,0,0,0-4.52-5.52,18.57,18.57,0,0,0-6.68-3.08,33.54,33.54,0,0,0-8.07-1h-11.7v35.4h12.75a24.58,24.58,0,0,0,7.55-1.15A19.34,19.34,0,0,0,148.11,77a16.27,16.27,0,0,0,4.37-5.5,16.91,16.91,0,0,0,1.63-7.58A18.5,18.5,0,0,0,152.43,55.67ZM145,68.6A8.8,8.8,0,0,1,142.36,72a10.7,10.7,0,0,1-4,1.82,21.57,21.57,0,0,1-5,.55h-4.05v-21h4.6a17,17,0,0,1,4.67.63,11.66,11.66,0,0,1,3.88,1.87A9.14,9.14,0,0,1,145,59a9.87,9.87,0,0,1,1,4.52A11.89,11.89,0,0,1,145,68.6Zm44.63-.13a8,8,0,0,0-1.58-2.62A8.38,8.38,0,0,0,185.63,64a10.31,10.31,0,0,0-3.17-1v-.1a9.22,9.22,0,0,0,4.42-2.82,7.43,7.43,0,0,0,1.68-5,8.42,8.42,0,0,0-1.15-4.65,8.09,8.09,0,0,0-3-2.72,12.56,12.56,0,0,0-4.18-1.3,32.84,32.84,0,0,0-4.62-.33h-13.2v35.4h14.5a22.41,22.41,0,0,0,4.72-.5,13.53,13.53,0,0,0,4.28-1.65,9.42,9.42,0,0,0,3.1-3,8.52,8.52,0,0,0,1.2-4.68A9.39,9.39,0,0,0,189.66,68.47ZM170.21,52.72h5.3a10,10,0,0,1,1.85.18,6.18,6.18,0,0,1,1.7.57,3.39,3.39,0,0,1,1.22,1.13,3.22,3.22,0,0,1,.48,1.82,3.63,3.63,0,0,1-.43,1.8,3.4,3.4,0,0,1-1.12,1.2,4.92,4.92,0,0,1-1.58.65,7.51,7.51,0,0,1-1.77.2h-5.65Zm11.72,20a3.9,3.9,0,0,1-1.22,1.3,4.64,4.64,0,0,1-1.68.7,8.18,8.18,0,0,1-1.82.2h-7v-8h5.9a15.35,15.35,0,0,1,2,.15,8.47,8.47,0,0,1,2.05.55,4,4,0,0,1,1.57,1.18,3.11,3.11,0,0,1,.63,2A3.71,3.71,0,0,1,181.93,72.72Z"/>
-                        </svg>
-                    </div>
-                    <span class="source-name">TMDB</span>
-                    <span class="source-badge">API</span>
-                </button>
-            </div>
-            
-            <div class="search-container">
-                <div class="search-box">
-                    <div class="search-icon">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M21 21L16.65 16.65M19 11C19 15.4183 15.4183 19 11 19C6.58172 19 3 15.4183 3 11C3 6.58172 6.58172 3 11 3C15.4183 3 19 6.58172 19 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                    <input 
-                        type="text" 
-                        id="movieInput" 
-                        placeholder="Film adını yazın (örn: Demon Slayer, Black Phone)" 
-                        autocomplete="off"
-                    />
-                    <button id="searchBtn" class="search-btn">
-                        <span class="btn-text">Ara ve İndir</span>
-                        <span class="btn-icon">
-                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 12H20M20 12L14 6M20 12L14 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            </svg>
-                        </span>
-                    </button>
-                </div>
-                
-                <!-- Boyut Filtresi -->
-                <div class="size-filter-container">
-                    <label for="sizeFilter" class="size-filter-label">
-                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M9 11L12 14L22 4M21 12V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        Görüntü Boyutu:
-                    </label>
-                    <select id="sizeFilter" class="size-filter-select">
-                        <option value="default">Tüm Boyutlar (Varsayılan)</option>
-                        <option value="1920x1080">Full HD (1920x1080)</option>
-                        <option value="2560x1440">2K (2560x1440)</option>
-                        <option value="3840x2160">4K (3840x2160)</option>
-                        <option value="1280x720">HD (1280x720)</option>
-                        <option value="custom">Özel Boyut (1920-2400 x 700-1400)</option>
-                    </select>
-                </div>
-                
-                <p class="search-hint">
-                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Film veya dizi adı girin ve arama yapın
-                </p>
-            </div>
-        </section>
-
-        <!-- Movie Selection Section -->
-        <section id="movieSelectionSection" class="movie-selection-section hidden">
-            <div class="selection-container">
-                <div class="selection-header">
-                    <h3>Hangi film/diziyi arıyorsunuz?</h3>
-                    <p class="selection-subtitle">Lütfen Listeden Birini Seçin</p>
-                </div>
-                <div id="movieSelectionGrid" class="movie-selection-grid">
-                    <!-- Movie cards will be dynamically added here -->
-                </div>
-            </div>
-        </section>
-
-        <!-- Status Section -->
-        <section id="statusSection" class="status-section hidden">
-            <div class="status-container">
-                <div class="status-header">
-                    <div class="status-icon loading">
-                        <div class="spinner"></div>
-                    </div>
-                    <h3 id="statusTitle">İşlem Devam Ediyor...</h3>
-                </div>
-                <p id="statusMessage" class="status-message">Filmler aranıyor ve bannerlar yükleniyor...</p>
-                <div class="progress-bar">
-                    <div id="progressFill" class="progress-fill"></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Results Section -->
-        <section id="resultsSection" class="results-section hidden">
-            <div class="results-header">
-                <h2>İndirilen Bannerlar</h2>
-                <div id="resultsCount" class="results-count">0 görsel</div>
-            </div>
-            <div id="resultsGrid" class="results-grid">
-                <!-- Images will be dynamically added here -->
-            </div>
-        </section>
-
-        <!-- Empty State -->
-        <section id="emptyState" class="empty-state">
-            <div class="empty-icon">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M3 8L10.89 13.26C11.5277 13.6728 12.4723 13.6728 13.11 13.26L21 8M5 19H19C20.1046 19 21 18.1046 21 17V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-            <h3>Henüz Banner İndirilmedi</h3>
-            <p>Yukarıdaki arama kutusuna bir film adı yazın ve aramaya başlayın</p>
-        </section>
-
-        <!-- Footer -->
-        <footer class="footer">
-            <p>Made with <span class="heart">♥</span> by Banner Downloader</p>
-        </footer>
-    </div>
-
-    <script src="/resources/css/app.js"></script>
 </body>
 </html>
