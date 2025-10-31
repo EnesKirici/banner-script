@@ -4,23 +4,6 @@
     box-sizing: border-box;
 }
 
-:root {
-    --bg-primary: #0a0a0a;
-    --bg-secondary: #121212;
-    --bg-tertiary: #1a1a1a;
-    --text-primary: #ffffff;
-    --text-secondary: #a0a0a0;
-    --text-tertiary: #707070;
-    --accent-cyan: #00d4ff;
-    --accent-teal: #00ffcc;
-    --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #00ffcc 100%);
-    --gradient-secondary: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
-    --gradient-card: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, rgba(0, 255, 204, 0.05) 100%);
-    --border-color: rgba(0, 212, 255, 0.2);
-    --shadow-glow: 0 0 30px rgba(0, 212, 255, 0.3);
-    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
-}
-
 /* Custom Scrollbar - Siyah Turkuaz Tema */
 ::-webkit-scrollbar {
     width: 12px;
@@ -165,8 +148,8 @@ body::before {
 }
 
 .sidebar-item:hover {
-    background: rgba(0,212,255,0.05);
-    border-color: rgba(0,212,255,0.2);
+    background: var(--gradient-card);
+    border-color: var(--border-color);
     transform: translateX(4px);
 }
 
@@ -327,24 +310,50 @@ body::before {
 }
 
 .source-icon {
-    width: 48px;
-    height: 48px;
+    width: 56px;
+    height: 56px;
     color: var(--text-secondary);
     transition: all 0.3s ease;
-}
-
-.source-btn.active .source-icon {
-    color: var(--accent-cyan);
-}
-
-.source-btn:hover .source-icon {
-    color: var(--accent-teal);
-    transform: scale(1.1) rotate(5deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .source-icon svg {
     width: 100%;
-    height: 100%;
+    height: auto;
+}
+
+/* IMDb Logo Styling */
+.source-icon.imdb-logo svg {
+    filter: grayscale(100%) brightness(0.6);
+    transition: filter 0.3s ease;
+}
+
+.source-btn.active .source-icon.imdb-logo svg,
+.source-btn:hover .source-icon.imdb-logo svg {
+    filter: grayscale(0%) brightness(1);
+}
+
+/* TMDB Logo Styling */
+.source-icon.tmdb-logo svg {
+    width: 100%;
+    height: auto;
+    filter: grayscale(100%) brightness(0.6);
+    transition: filter 0.3s ease;
+}
+
+.source-btn.active .source-icon.tmdb-logo svg,
+.source-btn:hover .source-icon.tmdb-logo svg {
+    filter: grayscale(0%) brightness(1);
+}
+
+.source-btn.active .source-icon {
+    transform: scale(1);
+}
+
+.source-btn:hover .source-icon {
+    transform: scale(1.05);
 }
 
 .source-name {
@@ -968,10 +977,8 @@ body::before {
     overflow: hidden;
 }
 
-/* ==================== SNOW EFFECT STYLES ==================== */
-
-/* Snow Container */
-.snow-container {
+.snow-toggle::before {
+    content: '';
     position: absolute;
     inset: 0;
     background: var(--gradient-primary);
