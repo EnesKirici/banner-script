@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Banner Downloader - Modern Film Banner Arayıcı</title>
     <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="themes.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -23,6 +24,49 @@
         </svg>
         <span class="snow-toggle-text">☃️</span>
     </button>
+
+    <!-- Theme Settings Button -->
+    <button id="themeToggle" class="theme-toggle" title="Tema Ayarları">
+        <svg class="theme-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 1V3M12 21V23M4.22 4.22L5.64 5.64M18.36 18.36L19.78 19.78M1 12H3M21 12H23M4.22 19.78L5.64 18.36M18.36 5.64L19.78 4.22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="theme-toggle-text">🎨</span>
+    </button>
+
+    <!-- Theme Panel -->
+    <div id="themePanel" class="theme-panel">
+        <div class="theme-panel-header">
+            <h3>🎨 Tema Seçin</h3>
+            <button id="closethemePanel" class="close-theme-panel">×</button>
+        </div>
+        <div class="theme-options">
+            <button class="theme-option active" data-theme="default">
+                <div class="theme-preview theme-preview-default"></div>
+                <span>Turkuaz (Varsayılan)</span>
+            </button>
+            <button class="theme-option" data-theme="neon-pink">
+                <div class="theme-preview theme-preview-pink"></div>
+                <span>Neon Pembe</span>
+            </button>
+            <button class="theme-option" data-theme="neon-purple">
+                <div class="theme-preview theme-preview-purple"></div>
+                <span>Neon Mor</span>
+            </button>
+            <button class="theme-option" data-theme="neon-blue">
+                <div class="theme-preview theme-preview-blue"></div>
+                <span>Neon Mavi</span>
+            </button>
+            <button class="theme-option" data-theme="neon-white">
+                <div class="theme-preview theme-preview-white"></div>
+                <span>Neon Beyaz</span>
+            </button>
+            <button class="theme-option" data-theme="light">
+                <div class="theme-preview theme-preview-light"></div>
+                <span>Beyaz (Light Mode)</span>
+            </button>
+        </div>
+    </div>
 
     <!-- Left Sidebar: TMDB Popular Lists (Fixed) -->
     <aside class="sidebar" id="tmdbSidebar">
@@ -127,7 +171,7 @@
                     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 16V12M12 8H12.01M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    Birden fazla film için virgül ile ayırın
+                    Film veya dizi adı girin ve arama yapın
                 </p>
             </div>
         </section>

@@ -26,6 +26,7 @@ let currentMovieTitle = null;
 let currentMovieMediaType = null; // movie veya tv (TMDB için)
 let loadedImageUrls = new Set(); // Yüklenen görsel URL'lerini takip et (tekrar önleme)
 let activeSource = 'imdb'; // Varsayılan kaynak IMDb
+let progressInterval = null; // Progress bar interval referansı
 
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);
@@ -311,7 +312,7 @@ async function downloadBannersForMovie(movieId, movieTitle, mediaType) {
 
         const result = await response.json();
         
-        progressFill.style.width = '100%';
+        completeProgress(); // Progress'i %100'e tamamla
         
         setTimeout(() => {
             showStatus('success', 'İşlem Tamamlandı! 🎉', 
@@ -322,6 +323,7 @@ async function downloadBannersForMovie(movieId, movieTitle, mediaType) {
 
     } catch (error) {
         console.error('Error:', error);
+        completeProgress(); // Hata durumunda da temizle
         showStatus('error', 'Hata Oluştu', 
             'Banner indirme işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
@@ -341,19 +343,45 @@ function hideMovieSelection() {
 // Status gizle
 function hideStatus() {
     statusSection.classList.add('hidden');
+    // Progress interval'i temizle
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+    }
+    // Progress bar'ı sıfırla
+    progressFill.style.width = '0%';
 }
 
 // Simulate progress animation
 function simulateProgress() {
+    // Önceki interval'i temizle
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+    }
+    
+    // Progress'i sıfırla
+    progressFill.style.width = '0%';
+    
     let progress = 0;
-    const interval = setInterval(() => {
+    progressInterval = setInterval(() => {
         progress += Math.random() * 15;
         if (progress >= 90) {
             progress = 90;
-            clearInterval(interval);
+            clearInterval(progressInterval);
+            progressInterval = null;
         }
         progressFill.style.width = `${progress}%`;
     }, 800);
+}
+
+// Progress'i tamamla ve temizle
+function completeProgress() {
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+    }
+    progressFill.style.width = '100%';
 }
 
 // Show status section
@@ -805,6 +833,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchPopularLists();
     // Refresh every hour
     setInterval(fetchPopularLists, 3600 * 1000);
+    
+    // Initialize theme system
+    initThemeSystem();
 });
 
 // Fetch TMDB popular lists from server
@@ -1009,3 +1040,90 @@ if (prefersReducedMotion()) {
 }
 
 // ==================== END SNOW EFFECT CODE ====================
+
+// ==================== THEME SYSTEM CODE ====================
+
+// Theme System
+const themeToggle = document.getElementById('themeToggle');
+const themePanel = document.getElementById('themePanel');
+const closeThemePanel = document.getElementById('closethemePanel');
+const themeOptions = document.querySelectorAll('.theme-option');
+
+let currentTheme = 'default';
+
+// Initialize Theme System
+function initThemeSystem() {
+    // Load saved theme from localStorage
+    const savedTheme = localStorage.getItem('selectedTheme');
+    if (savedTheme) {
+        applyTheme(savedTheme);
+    }
+    
+    // Theme toggle button click handler
+    themeToggle.addEventListener('click', () => {
+        themePanel.classList.toggle('active');
+        themeToggle.classList.toggle('active');
+    });
+    
+    // Close button handler
+    closeThemePanel.addEventListener('click', () => {
+        themePanel.classList.remove('active');
+        themeToggle.classList.remove('active');
+    });
+    
+    // Theme option click handlers
+    themeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            const theme = option.dataset.theme;
+            applyTheme(theme);
+            
+            // Close panel after selection
+            setTimeout(() => {
+                themePanel.classList.remove('active');
+                themeToggle.classList.remove('active');
+            }, 300);
+        });
+    });
+    
+    // Click outside to close
+    document.addEventListener('click', (e) => {
+        if (!themePanel.contains(e.target) && !themeToggle.contains(e.target)) {
+            themePanel.classList.remove('active');
+            themeToggle.classList.remove('active');
+        }
+    });
+}
+
+// Apply theme
+function applyTheme(theme) {
+    currentTheme = theme;
+    
+    // Update body data-theme attribute
+    document.body.setAttribute('data-theme', theme);
+    
+    // Update active state on buttons
+    themeOptions.forEach(option => {
+        if (option.dataset.theme === theme) {
+            option.classList.add('active');
+        } else {
+            option.classList.remove('active');
+        }
+    });
+    
+    // Save to localStorage
+    localStorage.setItem('selectedTheme', theme);
+    
+    // Show notification
+    const themeNames = {
+        'default': 'Turkuaz',
+        'neon-pink': 'Neon Pembe',
+        'neon-purple': 'Neon Mor',
+        'neon-blue': 'Neon Mavi',
+        'neon-white': 'Neon Beyaz',
+        'light': 'Beyaz (Light Mode)'
+    };
+    
+    showNotification(`🎨 Tema değiştirildi: ${themeNames[theme]}`, 'info');
+}
+
+// ==================== END THEME SYSTEM CODE ====================

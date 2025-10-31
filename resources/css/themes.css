@@ -1,0 +1,323 @@
+/* ==================== THEME STYLES ==================== */
+
+/* Default Theme - Turkuaz */
+:root {
+    --bg-primary: #0a0a0a;
+    --bg-secondary: #121212;
+    --bg-tertiary: #1a1a1a;
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0a0;
+    --text-tertiary: #707070;
+    --accent-cyan: #00d4ff;
+    --accent-teal: #00ffcc;
+    --gradient-primary: linear-gradient(135deg, #00d4ff 0%, #00ffcc 100%);
+    --gradient-secondary: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+    --gradient-card: linear-gradient(135deg, rgba(0, 212, 255, 0.05) 0%, rgba(0, 255, 204, 0.05) 100%);
+    --border-color: rgba(0, 212, 255, 0.2);
+    --shadow-glow: 0 0 30px rgba(0, 212, 255, 0.3);
+    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Neon Pink Theme */
+[data-theme="neon-pink"] {
+    --accent-cyan: #ff006e;
+    --accent-teal: #ff66b3;
+    --gradient-primary: linear-gradient(135deg, #ff006e 0%, #ff66b3 100%);
+    --gradient-card: linear-gradient(135deg, rgba(255, 0, 110, 0.05) 0%, rgba(255, 102, 179, 0.05) 100%);
+    --border-color: rgba(255, 0, 110, 0.2);
+    --shadow-glow: 0 0 30px rgba(255, 0, 110, 0.3);
+}
+
+/* Neon Purple Theme */
+[data-theme="neon-purple"] {
+    --accent-cyan: #9d4edd;
+    --accent-teal: #c77dff;
+    --gradient-primary: linear-gradient(135deg, #9d4edd 0%, #c77dff 100%);
+    --gradient-card: linear-gradient(135deg, rgba(157, 78, 221, 0.05) 0%, rgba(199, 125, 255, 0.05) 100%);
+    --border-color: rgba(157, 78, 221, 0.2);
+    --shadow-glow: 0 0 30px rgba(157, 78, 221, 0.3);
+}
+
+/* Neon Blue Theme */
+[data-theme="neon-blue"] {
+    --accent-cyan: #4361ee;
+    --accent-teal: #4cc9f0;
+    --gradient-primary: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+    --gradient-card: linear-gradient(135deg, rgba(67, 97, 238, 0.05) 0%, rgba(76, 201, 240, 0.05) 100%);
+    --border-color: rgba(67, 97, 238, 0.2);
+    --shadow-glow: 0 0 30px rgba(67, 97, 238, 0.3);
+}
+
+/* Neon White Theme */
+[data-theme="neon-white"] {
+    --accent-cyan: #f0f0f0;
+    --accent-teal: #ffffff;
+    --gradient-primary: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+    --gradient-card: linear-gradient(135deg, rgba(240, 240, 240, 0.05) 0%, rgba(255, 255, 255, 0.05) 100%);
+    --border-color: rgba(255, 255, 255, 0.2);
+    --shadow-glow: 0 0 30px rgba(255, 255, 255, 0.3);
+}
+
+/* Light Mode (White) */
+[data-theme="light"] {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #e9ecef;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --text-tertiary: #adb5bd;
+    --accent-cyan: #0d6efd;
+    --accent-teal: #0dcaf0;
+    --gradient-primary: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+    --gradient-secondary: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    --gradient-card: linear-gradient(135deg, rgba(13, 110, 253, 0.05) 0%, rgba(13, 202, 240, 0.05) 100%);
+    --border-color: rgba(13, 110, 253, 0.2);
+    --shadow-glow: 0 0 30px rgba(13, 110, 253, 0.2);
+    --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 56px;
+    height: 56px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10000;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        0 0 20px var(--shadow-glow);
+    overflow: hidden;
+}
+
+.theme-toggle::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 50%;
+}
+
+.theme-toggle:hover {
+    transform: scale(1.1) rotate(90deg);
+    border-color: var(--accent-cyan);
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.4),
+        var(--shadow-glow);
+}
+
+.theme-toggle:hover::before {
+    opacity: 0.15;
+}
+
+.theme-toggle:active {
+    transform: scale(0.95) rotate(0deg);
+}
+
+.theme-toggle .theme-icon {
+    width: 24px;
+    height: 24px;
+    color: var(--accent-cyan);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    z-index: 1;
+}
+
+.theme-toggle .theme-toggle-text {
+    position: absolute;
+    font-size: 1.5rem;
+    opacity: 0;
+    transform: scale(0) rotate(-180deg);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+}
+
+.theme-toggle.active .theme-icon {
+    opacity: 0;
+    transform: scale(0) rotate(180deg);
+}
+
+.theme-toggle.active .theme-toggle-text {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+}
+
+.theme-toggle.active {
+    background: linear-gradient(135deg, rgba(var(--accent-cyan), 0.15) 0%, rgba(var(--accent-teal), 0.15) 100%);
+    border-color: var(--accent-teal);
+}
+
+/* Theme Panel */
+.theme-panel {
+    position: fixed;
+    bottom: 5rem;
+    right: 1.5rem;
+    width: 280px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    border-radius: 16px;
+    padding: 1.25rem;
+    z-index: 9999;
+    box-shadow: var(--shadow-card), var(--shadow-glow);
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.theme-panel.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+.theme-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.theme-panel-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.close-theme-panel {
+    background: transparent;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.close-theme-panel:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+}
+
+.theme-options {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.theme-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: var(--bg-tertiary);
+    border: 2px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.theme-option:hover {
+    background: var(--gradient-card);
+    border-color: var(--border-color);
+    transform: translateX(4px);
+}
+
+.theme-option.active {
+    background: var(--gradient-card);
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 15px rgba(var(--accent-cyan), 0.2);
+}
+
+.theme-preview {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.theme-preview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--gradient-primary);
+    opacity: 0.3;
+}
+
+.theme-preview-default {
+    background: linear-gradient(135deg, #00d4ff 0%, #00ffcc 100%);
+}
+
+.theme-preview-pink {
+    background: linear-gradient(135deg, #ff006e 0%, #ff66b3 100%);
+}
+
+.theme-preview-purple {
+    background: linear-gradient(135deg, #9d4edd 0%, #c77dff 100%);
+}
+
+.theme-preview-blue {
+    background: linear-gradient(135deg, #4361ee 0%, #4cc9f0 100%);
+}
+
+.theme-preview-white {
+    background: linear-gradient(135deg, #f0f0f0 0%, #ffffff 100%);
+}
+
+.theme-preview-light {
+    background: linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%);
+    border-color: #0d6efd;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .theme-toggle {
+        width: 48px;
+        height: 48px;
+        bottom: 1rem;
+        right: 1rem;
+    }
+    
+    .theme-toggle .theme-icon {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .theme-panel {
+        width: calc(100vw - 2rem);
+        right: 1rem;
+        bottom: 4.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .theme-toggle {
+        width: 44px;
+        height: 44px;
+        bottom: 0.75rem;
+        right: 0.75rem;
+    }
+}

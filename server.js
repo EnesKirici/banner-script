@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
-import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
+import { searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
 import { searchMoviesTMDB, getMovieImagesTMDB, loadMoreImagesTMDB, getPopularMoviesTMDB, getPopularTVTMDB } from './tmdb-api.js';
 import { getCacheStats, clearCache } from './cache.js';
 
@@ -108,50 +108,6 @@ app.post('/api/download-by-id', async (req, res) => {
             message: `${result.totalImages} adet banner bulundu${result.fromCache ? ' (Cache\'den)' : ''}`,
             movies: result.movies,
             fromCache: result.fromCache || false
-        });
-
-    } catch (error) {
-        console.error('❌ Error:', error);
-        res.status(500).json({ 
-            error: 'Bir hata oluştu',
-            details: error.message 
-        });
-    }
-});
-
-// Download banners endpoint
-app.post('/api/download', async (req, res) => {
-    const { movies } = req.body;
-    
-    if (!movies) {
-        return res.status(400).json({ error: 'Film adı gerekli' });
-    }
-
-    console.log(`\n🎬 İstek alındı: ${movies}\n`);
-
-    try {
-        // Direkt olarak download fonksiyonunu çağır
-        const result = await downloadBanners(movies);
-
-        console.log(`\n✅ API Response: ${result.totalImages} görsel bulundu\n`);
-
-        // Görsel bilgilerini frontend'e gönder
-        const images = result.images.map((img, index) => ({
-            id: index,
-            name: img.filename,
-            url: img.url,
-            width: img.width,
-            height: img.height,
-            movie: img.film,
-            domain: img.domain
-        }));
-
-        res.json({
-            success: true,
-            totalImages: result.totalImages,
-            images,
-            message: `${result.totalImages} adet banner bulundu`,
-            movies: result.movies
         });
 
     } catch (error) {

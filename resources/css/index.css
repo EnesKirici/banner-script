@@ -968,8 +968,10 @@ body::before {
     overflow: hidden;
 }
 
-.snow-toggle::before {
-    content: '';
+/* ==================== SNOW EFFECT STYLES ==================== */
+
+/* Snow Container */
+.snow-container {
     position: absolute;
     inset: 0;
     background: var(--gradient-primary);
@@ -1133,6 +1135,24 @@ body::before {
     
     .snow-toggle .snow-toggle-text {
         font-size: 1.25rem;
+    }
+    
+    .theme-toggle {
+        width: 48px;
+        height: 48px;
+        bottom: 1rem;
+        right: 1rem;
+    }
+    
+    .theme-toggle .theme-icon {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .theme-panel {
+        width: calc(100vw - 2rem);
+        right: 1rem;
+        bottom: 4.5rem;
     }
     
     /* Source selector responsive */
@@ -1323,7 +1343,7 @@ body::before {
 .toast {
     position: fixed;
     bottom: 2rem;
-    right: 2rem;
+    right: 6rem; /* Sola kaydırıldı - butonların üstünde kalmasın */
     background: var(--bg-secondary);
     border: 2px solid var(--border-color);
     border-radius: 12px;
