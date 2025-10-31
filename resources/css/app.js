@@ -12,6 +12,8 @@ const resultsCount = document.getElementById('resultsCount');
 const emptyState = document.getElementById('emptyState');
 const movieSelectionSection = document.getElementById('movieSelectionSection');
 const movieSelectionGrid = document.getElementById('movieSelectionGrid');
+const imdbSourceBtn = document.getElementById('imdbSource');
+const tmdbSourceBtn = document.getElementById('tmdbSource');
 
 // State
 let isProcessing = false;
@@ -19,8 +21,8 @@ let downloadedImages = [];
 let movieSearchResults = [];
 let selectedMovieId = null;
 let currentMovieTitle = null;
-let currentScrollCount = 1; // Her yüklemede kaç kez kaydırma yapılacak
 let loadedImageUrls = new Set(); // Yüklenen görsel URL'lerini takip et (tekrar önleme)
+let activeSource = 'imdb'; // Varsayılan kaynak IMDb
 
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);
@@ -29,6 +31,37 @@ movieInput.addEventListener('keypress', (e) => {
         handleSearch();
     }
 });
+
+// Source selector event listeners
+imdbSourceBtn.addEventListener('click', () => switchSource('imdb'));
+tmdbSourceBtn.addEventListener('click', () => switchSource('tmdb'));
+
+// Kaynak değiştirme fonksiyonu
+function switchSource(source) {
+    if (activeSource === source || isProcessing) return;
+    
+    activeSource = source;
+    
+    // Button active state'lerini güncelle
+    if (source === 'imdb') {
+        imdbSourceBtn.classList.add('active');
+        tmdbSourceBtn.classList.remove('active');
+        console.log('🎬 Kaynak değiştirildi: IMDb');
+    } else {
+        tmdbSourceBtn.classList.add('active');
+        imdbSourceBtn.classList.remove('active');
+        console.log('🎥 Kaynak değiştirildi: TMDB');
+    }
+    
+    // Mevcut sonuçları temizle
+    hideMovieSelection();
+    resultsSection.classList.add('hidden');
+    resultsGrid.innerHTML = '';
+    downloadedImages = [];
+    loadedImageUrls.clear();
+    
+    showNotification(`📡 Kaynak değiştirildi: ${source === 'imdb' ? 'IMDb' : 'TMDB API'}`, 'info');
+}
 
 // Main search handler
 async function handleSearch() {
@@ -54,10 +87,14 @@ async function searchAndShowResults(movieName) {
     hideMovieSelection();
     hideEmptyState();
     
-    showStatus('loading', 'Arama Yapılıyor...', `"${movieName}" için sonuçlar getiriliyor...`);
+    const sourceName = activeSource === 'imdb' ? 'IMDb' : 'TMDB API';
+    showStatus('loading', 'Arama Yapılıyor...', `"${movieName}" için ${sourceName} üzerinde arama yapılıyor...`);
     
     try {
-        const response = await fetch('/api/search-movies', {
+        // Aktif kaynağa göre endpoint seç
+        const endpoint = activeSource === 'imdb' ? '/api/search-movies' : '/api/tmdb-search';
+        
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -225,19 +262,23 @@ async function downloadBannersForMovie(movieId, movieTitle) {
     // State'i güncelle ve sıfırla
     selectedMovieId = movieId;
     currentMovieTitle = movieTitle;
-    currentScrollCount = 1; // İlk yüklemede 1 kez kaydır
     loadedImageUrls.clear(); // Önceki görselleri temizle
     
     // Seçilen boyut filtresini al
     const selectedSize = sizeFilter.value;
+    const sourceName = activeSource === 'imdb' ? 'IMDb' : 'TMDB API';
     console.log(`📐 Frontend - Seçilen boyut filtresi: "${selectedSize}"`);
+    console.log(`📡 Aktif kaynak: ${sourceName}`);
     
-    showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için bannerlar indiriliyor... (Boyut: ${selectedSize})`);
+    showStatus('loading', 'İşlem Başladı', `"${movieTitle}" için ${sourceName} üzerinden bannerlar indiriliyor... (Boyut: ${selectedSize})`);
     simulateProgress();
 
     try {
+        // Aktif kaynağa göre endpoint seç
+        const endpoint = activeSource === 'imdb' ? '/api/download-by-id' : '/api/tmdb-download-by-id';
+        
         // Yeni endpoint ile movieId kullanarak indir
-        const response = await fetch('/api/download-by-id', {
+        const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -249,7 +290,7 @@ async function downloadBannersForMovie(movieId, movieTitle) {
             })
         });
 
-        console.log(`📡 API'ye gönderilen veri:`, { movieId, movieTitle, sizeFilter: selectedSize });
+        console.log(`📡 ${sourceName} API'ye gönderilen veri:`, { movieId, movieTitle, sizeFilter: selectedSize });
 
         if (!response.ok) {
             throw new Error('İndirme işlemi başarısız oldu');
@@ -261,7 +302,7 @@ async function downloadBannersForMovie(movieId, movieTitle) {
         
         setTimeout(() => {
             showStatus('success', 'İşlem Tamamlandı! 🎉', 
-                `${result.totalImages} adet banner bulundu`);
+                `${result.totalImages} adet banner bulundu (Kaynak: ${sourceName})`);
             
             loadDownloadedImages(result.images);
         }, 500);
@@ -387,7 +428,15 @@ function loadDownloadedImages(images, append = false) {
 function updateLoadMoreButton() {
     let loadMoreBtn = document.getElementById('loadMoreBtn');
     
-    // Buton yoksa oluştur
+    // TMDB için "Daha Fazla Yükle" butonu gösterme (tüm görseller zaten yüklü)
+    if (activeSource === 'tmdb') {
+        if (loadMoreBtn) {
+            loadMoreBtn.style.display = 'none';
+        }
+        return;
+    }
+    
+    // Buton yoksa oluştur (sadece IMDb için)
     if (!loadMoreBtn) {
         loadMoreBtn = document.createElement('button');
         loadMoreBtn.id = 'loadMoreBtn';
@@ -397,7 +446,6 @@ function updateLoadMoreButton() {
                 <path d="M12 5V19M12 19L19 12M12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             <span class="btn-text">Daha Fazla Yükle</span>
-            <span class="scroll-indicator">(Daha fazla kaydır)</span>
         `;
         loadMoreBtn.addEventListener('click', loadMoreImages);
         
@@ -405,20 +453,20 @@ function updateLoadMoreButton() {
         resultsSection.appendChild(loadMoreBtn);
     }
     
-    // Bilgilendirme metnini güncelle
-    const scrollIndicator = loadMoreBtn.querySelector('.scroll-indicator');
-    if (scrollIndicator) {
-        scrollIndicator.textContent = `(+${currentScrollCount} kez kaydırma)`;
-    }
-    
-    // Butonu göster (eğer selectedMovieId varsa)
-    if (selectedMovieId) {
+    // Butonu göster (eğer selectedMovieId varsa ve IMDb ise)
+    if (selectedMovieId && activeSource === 'imdb') {
         loadMoreBtn.style.display = 'flex';
     }
 }
 
-// Daha fazla görsel yükle
+// Daha fazla görsel yükle (sadece IMDb için)
 async function loadMoreImages() {
+    // TMDB için devre dışı
+    if (activeSource === 'tmdb') {
+        showNotification('ℹ️ TMDB API tüm görselleri ilk yüklemede getiriyor', 'info');
+        return;
+    }
+    
     if (isProcessing || !selectedMovieId || !currentMovieTitle) {
         console.log('Load more cancelled:', { isProcessing, selectedMovieId, currentMovieTitle });
         return;
@@ -442,9 +490,7 @@ async function loadMoreImages() {
         btnText.textContent = 'Yükleniyor...';
     }
     
-    // Her tıklamada kaydırma sayısını artır (daha fazla içerik yüklemek için)
-    currentScrollCount += 1;
-    console.log(`Loading more images with ${currentScrollCount} scrolls for ${currentMovieTitle} (${selectedMovieId})`);
+    console.log(`🔄 Daha fazla görsel yükleniyor...`);
     
     // Seçilen boyut filtresini al
     const selectedSize = sizeFilter.value;
@@ -458,7 +504,6 @@ async function loadMoreImages() {
             body: JSON.stringify({ 
                 movieId: selectedMovieId,
                 movieTitle: currentMovieTitle,
-                scrollCount: currentScrollCount,
                 sizeFilter: selectedSize
             })
         });
@@ -480,9 +525,14 @@ async function loadMoreImages() {
             const newCount = afterCount - beforeCount;
             
             if (newCount > 0) {
-                showNotification(`✨ ${newCount} adet yeni görsel eklendi!`, 'success');
-                // Butonu güncelle
-                updateLoadMoreButton();
+                showNotification(`✨ ${newCount} adet yeni görsel eklendi! (Toplam: ${afterCount})`, 'success');
+                // Yeni eklenen görsellere scroll
+                setTimeout(() => {
+                    const lastCard = resultsGrid.lastElementChild;
+                    if (lastCard) {
+                        lastCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 300);
             } else {
                 showNotification('ℹ️ Tüm görseller zaten yüklü, yeni görsel bulunamadı', 'info');
             }
@@ -493,7 +543,6 @@ async function loadMoreImages() {
     } catch (error) {
         console.error('Load more error:', error);
         showNotification('❌ Daha fazla görsel yüklenirken hata oluştu', 'error');
-        currentScrollCount -= 1; // Geri al
     } finally {
         isProcessing = false;
         loadMoreBtn.disabled = false;

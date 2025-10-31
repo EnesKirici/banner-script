@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { downloadBanners, searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
+import { searchMoviesTMDB, getMovieImagesTMDB, loadMoreImagesTMDB } from './tmdb-api.js';
 import { getCacheStats, clearCache } from './cache.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -201,6 +202,112 @@ app.post('/api/load-more-images', async (req, res) => {
         console.error('❌ Error:', error);
         res.status(500).json({ 
             error: 'Daha fazla görsel yüklenirken bir hata oluştu',
+            details: error.message 
+        });
+    }
+});
+
+// ==================== TMDB API ENDPOINTS ====================
+
+// TMDB - Film arama endpoint
+app.post('/api/tmdb-search', async (req, res) => {
+    const { query } = req.body;
+    
+    if (!query) {
+        return res.status(400).json({ error: 'Film adı gerekli' });
+    }
+
+    console.log(`\n🔍 TMDB Arama isteği alındı: ${query}\n`);
+
+    try {
+        const result = await searchMoviesTMDB(query);
+
+        console.log(`\n✅ ${result.results.length} adet sonuç bulundu${result.fromCache ? ' (Cache\'den)' : ''}\n`);
+
+        res.json({
+            success: true,
+            query: result.query,
+            count: result.results.length,
+            results: result.results,
+            fromCache: result.fromCache || false,
+            source: 'tmdb'
+        });
+
+    } catch (error) {
+        console.error('❌ TMDB Error:', error);
+        res.status(500).json({ 
+            error: 'TMDB arama sırasında bir hata oluştu',
+            details: error.message 
+        });
+    }
+});
+
+// TMDB - Movie ID ile görsel indirme endpoint
+app.post('/api/tmdb-download-by-id', async (req, res) => {
+    const { movieId, movieTitle, sizeFilter } = req.body;
+    
+    if (!movieId || !movieTitle) {
+        return res.status(400).json({ error: 'Film ID ve başlığı gerekli' });
+    }
+
+    console.log(`\n🎬 TMDB - ID ile istek alındı: ${movieTitle} (${movieId})`);
+    console.log(`📐 Boyut filtresi: ${sizeFilter || 'default'}\n`);
+
+    try {
+        const result = await getMovieImagesTMDB(movieId, movieTitle, sizeFilter);
+
+        console.log(`\n✅ TMDB API Response: ${result.totalImages} görsel bulundu${result.fromCache ? ' (Cache\'den)' : ''}\n`);
+
+        const images = result.images.map((img, index) => ({
+            id: index,
+            name: img.filename,
+            url: img.url,
+            width: img.width,
+            height: img.height,
+            movie: img.film,
+            domain: img.domain
+        }));
+
+        res.json({
+            success: true,
+            totalImages: result.totalImages,
+            images,
+            message: `${result.totalImages} adet banner bulundu${result.fromCache ? ' (Cache\'den)' : ''}`,
+            movies: result.movies,
+            fromCache: result.fromCache || false,
+            source: 'tmdb'
+        });
+
+    } catch (error) {
+        console.error('❌ TMDB Error:', error);
+        res.status(500).json({ 
+            error: 'TMDB görsel indirme sırasında bir hata oluştu',
+            details: error.message 
+        });
+    }
+});
+
+// TMDB - Daha fazla görsel yükle (TMDB'de geçerli değil ama API uyumluluğu için)
+app.post('/api/tmdb-load-more', async (req, res) => {
+    const { movieId, movieTitle, sizeFilter } = req.body;
+    
+    console.log(`\n📄 TMDB - Daha fazla yükle isteği (geçerli değil): ${movieTitle}\n`);
+
+    try {
+        const result = await loadMoreImagesTMDB(movieId, movieTitle, sizeFilter);
+
+        res.json({
+            success: true,
+            totalImages: result.totalImages,
+            images: result.images,
+            message: result.message,
+            source: 'tmdb'
+        });
+
+    } catch (error) {
+        console.error('❌ TMDB Error:', error);
+        res.status(500).json({ 
+            error: 'TMDB daha fazla görsel yükleme hatası',
             details: error.message 
         });
     }

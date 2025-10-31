@@ -41,6 +41,31 @@
 
         <!-- Search Section -->
         <section class="search-section">
+            <!-- Source Selector -->
+            <div class="source-selector">
+                <button id="imdbSource" class="source-btn active" data-source="imdb" title="IMDb - Internet Movie Database">
+                    <div class="source-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+                            <path d="M6 8V16M10 8V16M14 8L16 16M18 8V16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <span class="source-name">IMDb</span>
+                    <span class="source-badge">Web Scraping</span>
+                </button>
+                <button id="tmdbSource" class="source-btn" data-source="tmdb" title="TMDB - The Movie Database">
+                    <div class="source-icon">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    <span class="source-name">TMDB</span>
+                    <span class="source-badge">API</span>
+                </button>
+            </div>
+            
             <div class="search-container">
                 <div class="search-box">
                     <div class="search-icon">

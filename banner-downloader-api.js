@@ -13,11 +13,29 @@ import {
 
 dotenv.config();
 
+// --- Performans ve Güvenlik Ayarları ---
+const PERFORMANCE_CONFIG = {
+  CONCURRENT_CHECKS: 15,      // Aynı anda kaç görsel kontrol edilsin (3'ten 15'e çıkardık)
+  BATCH_DELAY: 50,            // Batch'ler arası bekleme (ms) - 200'den 50'ye
+  REQUEST_TIMEOUT: 8000,      // İstek timeout süresi (ms)
+  SMART_FILTERING: true       // Akıllı filtreleme (URL'den boyut tahmini)
+};
+
+// User Agent havuzu (IMDb'nin bot dedection'ını atlatmak için)
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0'
+];
+
+// Rastgele User Agent seç
+function getRandomUserAgent() {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+}
+
 // --- Ayarlar ---
-const DEFAULT_MIN_WIDTH = 1920;   // Minimum genişlik
-const DEFAULT_MAX_WIDTH = 2400;   // Maksimum genişlik  
-const DEFAULT_MIN_HEIGHT = 700;   // Minimum yükseklik
-const DEFAULT_MAX_HEIGHT = 1400;  // Maksimum yükseklik 
 const DELAY_MS = 1500;    // Filmler arası bekleme
 
 // Boyut filtresi presetleri
@@ -32,21 +50,49 @@ const SIZE_PRESETS = {
 
 // Boyut filtresini parse et
 function parseSizeFilter(sizeFilter) {
-  console.log(`📐 parseSizeFilter çağrıldı - Gelen değer: "${sizeFilter}" (tip: ${typeof sizeFilter})`);
+  console.log(`📐 Boyut filtresi: "${sizeFilter}"`);
   
   if (!sizeFilter || sizeFilter === 'default') {
-    console.log(`   → Varsayılan boyut kullanılıyor`);
     return SIZE_PRESETS.default;
   }
   
   if (SIZE_PRESETS[sizeFilter]) {
-    console.log(`   → "${sizeFilter}" preset bulundu:`, SIZE_PRESETS[sizeFilter]);
     return SIZE_PRESETS[sizeFilter];
   }
   
-  console.log(`   ⚠️ "${sizeFilter}" preset bulunamadı, varsayılan kullanılıyor`);
-  // Varsayılan değer
   return SIZE_PRESETS.default;
+}
+
+// --- Akıllı URL Filtreleme (indirmeden boyut tahmini) ---
+function smartFilterUrl(url, sizeFilter = 'default') {
+  if (!PERFORMANCE_CONFIG.SMART_FILTERING) return true;
+  
+  // URL'den boyut bilgisi çıkar (örn: UX2000, UY1080)
+  const sizeMatch = url.match(/U[XY](\d+)/g);
+  if (!sizeMatch) return true; // Boyut bilgisi yoksa kontrol et
+  
+  const { minWidth, maxWidth, minHeight, maxHeight } = parseSizeFilter(sizeFilter);
+  
+  // URL'deki boyutları çıkar
+  let urlWidth = 0, urlHeight = 0;
+  sizeMatch.forEach(match => {
+    const value = parseInt(match.substring(2));
+    if (match.startsWith('UX')) urlWidth = value;
+    if (match.startsWith('UY')) urlHeight = value;
+  });
+  
+  // Eğer URL'de boyut bilgisi varsa, hızlı filtrele (20% tolerans ile)
+  if (urlWidth > 0 && urlHeight > 0) {
+    const isValid = urlWidth >= minWidth * 0.8 && urlWidth <= maxWidth * 1.2 &&
+                    urlHeight >= minHeight * 0.8 && urlHeight <= maxHeight * 1.2;
+    
+    if (!isValid) {
+      console.log(`   ⚡ Akıllı filtre: ${urlWidth}x${urlHeight} → Atlandı (hedef: ${minWidth}-${maxWidth}x${minHeight}-${maxHeight})`);
+      return false;
+    }
+  }
+  
+  return true;
 }
 
 // --- sources.json okuma ---
@@ -58,7 +104,10 @@ function getSources() {
 // --- HTTP HEAD ile boyut kontrolü (indirmeden önce) ---
 async function checkImageSize(url) {
   try {
-    const headRes = await axios.head(url, { timeout: 5000 });
+    const headRes = await axios.head(url, { 
+      timeout: PERFORMANCE_CONFIG.REQUEST_TIMEOUT,
+      headers: { 'User-Agent': getRandomUserAgent() }
+    });
     const contentType = headRes.headers['content-type'];
     const contentLength = parseInt(headRes.headers['content-length'] || '0');
     
@@ -77,29 +126,38 @@ async function checkImageSize(url) {
 // --- Görselleri kontrol et ve metadata döndür (kaydetmeden) ---
 async function checkImage(url, film, domain, sizeFilter = 'default') {
   try {
-    console.log(`   🔄 Kontrol ediliyor: ${url}`);
+    // 1. Akıllı URL filtreleme (en hızlı - indirme yok!)
+    if (!smartFilterUrl(url, sizeFilter)) {
+      return null;
+    }
+    
+    console.log(`   🔄 İndiriliyor: ${url.substring(0, 80)}...`);
     
     // Boyut filtresini parse et
     const { minWidth, maxWidth, minHeight, maxHeight } = parseSizeFilter(sizeFilter);
     
-    // Önce HEAD ile kontrol et
+    // 2. HEAD ile hızlı kontrol
     const { skip, contentType } = await checkImageSize(url);
     if (skip) {
       console.log(`   ⏭️ Atlandı (dosya boyutu uygun değil)`);
       return null;
     }
     
-    const imgRes = await axios.get(url, { responseType: "arraybuffer", timeout: 10000 });
+    // 3. Tam indirme ve boyut kontrolü
+    const imgRes = await axios.get(url, { 
+      responseType: "arraybuffer", 
+      timeout: PERFORMANCE_CONFIG.REQUEST_TIMEOUT,
+      headers: { 'User-Agent': getRandomUserAgent() }
+    });
     const buffer = Buffer.from(imgRes.data);
     const { width, height } = sizeOf(buffer);
 
-    console.log(`   📏 Boyut: ${width}x${height} (kabul edilen: ${minWidth}-${maxWidth}px genişlik, ${minHeight}-${maxHeight}px yükseklik)`);
+    console.log(`   📏 ${width}x${height}`);
 
-    // Katı boyut kontrolü - sadece belirtilen aralıktaki görseller
+    // Boyut kontrolü
     if (width >= minWidth && width <= maxWidth && height >= minHeight && height <= maxHeight) {
-      console.log(`✅ Uygun görsel bulundu - Boyut: ${width}x${height}`);
+      console.log(`   ✅ Uygun!`);
       
-      // Base64'e çevir (küçük boyutlar için) veya URL'i döndür
       return {
         url,
         width,
@@ -110,10 +168,12 @@ async function checkImage(url, film, domain, sizeFilter = 'default') {
         contentType: contentType || 'image/jpeg'
       };
     } else {
-      console.log(`   ❌ Boyut aralık dışı - atlandı: ${width}x${height}`);
+      console.log(`   ❌ Boyut aralık dışı`);
     }
   } catch (err) {
-    console.log(`⚠️ ${url} kontrol edilemedi (${domain}): ${err.message}`);
+    if (err.code !== 'ETIMEDOUT') {
+      console.log(`   ⚠️ Hata: ${err.message}`);
+    }
   }
   return null;
 }
@@ -123,19 +183,18 @@ async function searchMovies(film, siteUrl) {
   const query = encodeURIComponent(film);
   const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
   
-  console.log(`   🔍 "${film}" için IMDb'de arama yapılıyor...`);
+  console.log(`   🔍 "${film}" aranıyor...`);
   
   const searchUrl = `${siteUrl}/find?q=${query}&s=tt`;
   
   try {
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': getRandomUserAgent(),
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
       'Referer': 'https://www.imdb.com/',
     };
     
-    console.log(`   📡 Aranıyor: ${searchUrl}`);
     const res = await axios.get(searchUrl, { timeout: 15000, headers });
     const $ = cheerio.load(res.data);
     
@@ -212,21 +271,17 @@ async function searchMovies(film, siteUrl) {
 // --- IMDb'de filmi ara ve detay sayfasına git (tek sonuç) ---
 async function findMovieUrl(film, siteUrl) {
   const query = encodeURIComponent(film);
-  const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
-  
-  console.log(`   🔍 "${film}" için IMDb'de arama yapılıyor...`);
   
   const searchUrl = `${siteUrl}/find?q=${query}&s=tt&ttype=ft`;
   
   try {
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': getRandomUserAgent(),
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
       'Referer': 'https://www.imdb.com/',
     };
     
-    console.log(`   📡 Aranıyor: ${searchUrl}`);
     const res = await axios.get(searchUrl, { timeout: 15000, headers });
     const $ = cheerio.load(res.data);
     
@@ -261,16 +316,23 @@ async function findMovieUrl(film, siteUrl) {
 }
 
 // --- Film detay sayfasından tüm görselleri çek (Puppeteer ile) ---
-async function getMovieImages(movieInfo, siteUrl) {
+async function getMovieImages(movieInfo, siteUrl, sizeFilter = 'default', enableScroll = false) {
   if (!movieInfo) return [];
   
   const { movieUrl, movieId, movieTitle } = movieInfo;
   const domain = siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
   
-  console.log(`   🖼️ "${movieTitle}" için görseller çekiliyor...`);
+  console.log(`   🖼️ "${movieTitle}" için görseller çekiliyor...${enableScroll ? ' (scroll ile)' : ''}`);
   
-  // IMDb medya sayfası URL'i
-  const mediaUrl = `${siteUrl}/title/${movieId}/mediaindex`;
+  // IMDb medya sayfası URL'i - Boyut filtresine göre URL'i ayarla
+  let mediaUrl = `${siteUrl}/title/${movieId}/mediaindex`;
+  
+  // Boyut filtresine göre kategorileri seç
+  const filterParams = getSizeFilterParams(sizeFilter);
+  if (filterParams) {
+    mediaUrl += `?${filterParams}`;
+    console.log(`   📐 Filtre parametreleri eklendi: ${filterParams}`);
+  }
   
   let browser;
   try {
@@ -290,8 +352,8 @@ async function getMovieImages(movieInfo, siteUrl) {
     
     const page = await browser.newPage();
     
-    // User agent ayarla
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    // User agent ayarla (rastgele)
+    await page.setUserAgent(getRandomUserAgent());
     
     // Viewport ayarla
     await page.setViewport({ width: 1920, height: 1080 });
@@ -304,21 +366,64 @@ async function getMovieImages(movieInfo, siteUrl) {
       timeout: 30000 
     });
     
+    // Sadece enableScroll true ise kaydır
+    if (enableScroll) {
+      console.log(`   🔄 Sayfa kaydırılıyor...`);
+      
+      // Sayfayı 1 kez kaydır (lazy loading için)
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+      
+      // Kaydırmadan sonra bekle (görsellerin yüklenmesi için)
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      console.log(`   ✅ Kaydırma tamamlandı`);
+    } else {
+      console.log(`   ⏭️ Scroll atlanıyor (ilk yükleme)`);
+      // İlk yükleme için kısa bekleme
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
     console.log(`   🔍 Görseller toplanıyor...`);
     
-    // Sayfadaki tüm görselleri topla
+    // Sayfadaki tüm görselleri topla (sadece ana grid içindeki görseller)
     const imageUrls = await page.evaluate(() => {
       const imgs = [];
       
-      // Tüm media-amazon.com görsellerini bul
-      document.querySelectorAll('img[src*="media-amazon.com"]').forEach(img => {
-        const src = img.src;
-        if (src && src.includes('._V1_')) {
-          // Yüksek çözünürlüklü versiyonu al
-          const fullSizeUrl = src.split('._V1_')[0] + '._V1_FMjpg_UX2000_.jpg';
-          imgs.push(fullSizeUrl);
-        }
-      });
+      // Ana medya grid'ini bul (More to explore bölümünü dışla)
+      const mediaGrid = document.querySelector('.media_index_thumb_list, [class*="MediaIndex"], .media-viewer');
+      
+      if (mediaGrid) {
+        // Sadece ana grid içindeki görselleri al
+        mediaGrid.querySelectorAll('img[src*="media-amazon.com"]').forEach(img => {
+          const src = img.src;
+          if (src && src.includes('._V1_')) {
+            // "More to explore" bölümünü filtrele (parent kontrolü)
+            const isInMoreToExplore = img.closest('[class*="MoreToExplore"], [class*="more-to-explore"], aside, [data-testid*="more"]');
+            
+            if (!isInMoreToExplore) {
+              // Yüksek çözünürlüklü versiyonu al
+              const fullSizeUrl = src.split('._V1_')[0] + '._V1_FMjpg_UX2000_.jpg';
+              imgs.push(fullSizeUrl);
+            }
+          }
+        });
+      } else {
+        // Fallback: Tüm görselleri al ama "More to explore" hariç
+        document.querySelectorAll('img[src*="media-amazon.com"]').forEach(img => {
+          const src = img.src;
+          if (src && src.includes('._V1_')) {
+            // "More to explore" bölümünü filtrele
+            const isInMoreToExplore = img.closest('[class*="MoreToExplore"], [class*="more-to-explore"], aside, [data-testid*="more"]');
+            
+            if (!isInMoreToExplore) {
+              const fullSizeUrl = src.split('._V1_')[0] + '._V1_FMjpg_UX2000_.jpg';
+              imgs.push(fullSizeUrl);
+            }
+          }
+        });
+      }
       
       return imgs;
     });
@@ -337,6 +442,29 @@ async function getMovieImages(movieInfo, siteUrl) {
       await browser.close();
     }
     return [];
+  }
+}
+
+// Boyut filtresine göre IMDb URL parametreleri oluştur
+function getSizeFilterParams(sizeFilter) {
+  // IMDb'de banner/poster kategorilerine göre filtrele
+  switch(sizeFilter) {
+    case 'default':
+      // Banner ve event görselleri (geniş formatlar)
+      return 'refine=event,publicity';
+    case '1920x1080':
+    case '2560x1440':
+    case '3840x2160':
+      // Yüksek çözünürlüklü bannerlar
+      return 'refine=event,publicity';
+    case '1280x720':
+      // HD bannerlar
+      return 'refine=event,publicity';
+    case 'custom':
+      // Tüm kategoriler (filtre yok)
+      return null;
+    default:
+      return 'refine=event,publicity';
   }
 }
 
@@ -370,8 +498,8 @@ export async function downloadBanners(filmInput) {
         continue;
       }
 
-      // Filmin tüm görsellerini çek
-      const imgs = await getMovieImages(movieInfo, site);
+      // Filmin tüm görsellerini çek (scroll OLMADAN)
+      const imgs = await getMovieImages(movieInfo, site, 'default', false);
       
       if (imgs.length === 0) {
         console.log(`   ⚠️ Görsel bulunamadı`);
@@ -379,14 +507,11 @@ export async function downloadBanners(filmInput) {
       }
 
       // Görselleri paralel kontrol et (dosyaya kaydetmeden)
-      const CONCURRENT_CHECKS = 3;
-      for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
-        const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
+      for (let i = 0; i < imgs.length; i += PERFORMANCE_CONFIG.CONCURRENT_CHECKS) {
+        const batch = imgs.slice(i, i + PERFORMANCE_CONFIG.CONCURRENT_CHECKS);
         const batchResults = await Promise.allSettled(
-          batch.map(img => checkImage(img, film, domain))
-        );
-        
-        // Başarılı olanları topla
+          batch.map(img => checkImage(img, film, domain, 'default'))
+        );        // Başarılı olanları topla
         batchResults.forEach(result => {
           if (result.status === 'fulfilled' && result.value) {
             movieImages.push(result.value);
@@ -396,8 +521,8 @@ export async function downloadBanners(filmInput) {
         });
         
         // Batch'ler arası kısa bekleme
-        if (i + CONCURRENT_CHECKS < imgs.length) {
-          await new Promise(r => setTimeout(r, 200));
+        if (i + PERFORMANCE_CONFIG.CONCURRENT_CHECKS < imgs.length) {
+          await new Promise(r => setTimeout(r, PERFORMANCE_CONFIG.BATCH_DELAY));
         }
       }
       
@@ -482,18 +607,17 @@ export async function downloadBannersByMovieId(movieId, movieTitle, sizeFilter =
       movieTitle: movieTitle
     };
 
-    // Filmin tüm görsellerini çek
-    const imgs = await getMovieImages(movieInfo, site);
+    // Filmin tüm görsellerini çek (boyut filtresi ile, scroll OLMADAN)
+    const imgs = await getMovieImages(movieInfo, site, sizeFilter, false);
     
     if (imgs.length === 0) {
       console.log(`   ⚠️ Görsel bulunamadı`);
       continue;
     }
 
-    // Görselleri paralel kontrol et
-    const CONCURRENT_CHECKS = 3;
-    for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
-      const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
+    // Görselleri paralel kontrol et (downloadBannersByMovieId)
+    for (let i = 0; i < imgs.length; i += PERFORMANCE_CONFIG.CONCURRENT_CHECKS) {
+      const batch = imgs.slice(i, i + PERFORMANCE_CONFIG.CONCURRENT_CHECKS);
       const batchResults = await Promise.allSettled(
         batch.map(img => checkImage(img, movieTitle, domain, sizeFilter))
       );
@@ -506,12 +630,12 @@ export async function downloadBannersByMovieId(movieId, movieTitle, sizeFilter =
         }
       });
       
-      if (i + CONCURRENT_CHECKS < imgs.length) {
-        await new Promise(r => setTimeout(r, 200));
+      if (i + PERFORMANCE_CONFIG.CONCURRENT_CHECKS < imgs.length) {
+        await new Promise(r => setTimeout(r, PERFORMANCE_CONFIG.BATCH_DELAY));
       }
     }
     
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 300));
   }
 
   if (foundCount === 0) {
@@ -571,18 +695,17 @@ export async function loadMoreImages(movieId, movieTitle, sizeFilter = 'default'
       movieTitle: movieTitle
     };
 
-    // Görselleri çek
-    const imgs = await getMovieImages(movieInfo, site);
+    // Görselleri çek (boyut filtresi ile, SCROLL İLE)
+    const imgs = await getMovieImages(movieInfo, site, sizeFilter, true);
     
     if (imgs.length === 0) {
       console.log(`   ⚠️ Görsel bulunamadı`);
       continue;
     }
 
-    // Görselleri paralel kontrol et
-    const CONCURRENT_CHECKS = 3;
-    for (let i = 0; i < imgs.length; i += CONCURRENT_CHECKS) {
-      const batch = imgs.slice(i, i + CONCURRENT_CHECKS);
+    // Görselleri paralel kontrol et (loadMoreImages)
+    for (let i = 0; i < imgs.length; i += PERFORMANCE_CONFIG.CONCURRENT_CHECKS) {
+      const batch = imgs.slice(i, i + PERFORMANCE_CONFIG.CONCURRENT_CHECKS);
       const batchResults = await Promise.allSettled(
         batch.map(img => checkImage(img, movieTitle, domain, sizeFilter))
       );
@@ -595,12 +718,12 @@ export async function loadMoreImages(movieId, movieTitle, sizeFilter = 'default'
         }
       });
       
-      if (i + CONCURRENT_CHECKS < imgs.length) {
-        await new Promise(r => setTimeout(r, 200));
+      if (i + PERFORMANCE_CONFIG.CONCURRENT_CHECKS < imgs.length) {
+        await new Promise(r => setTimeout(r, PERFORMANCE_CONFIG.BATCH_DELAY));
       }
     }
     
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 300));
   }
 
   if (foundCount === 0) {
