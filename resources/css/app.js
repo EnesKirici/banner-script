@@ -1,4 +1,5 @@
 // DOM Elements
+const logoutBtn = document.getElementById('logoutBtn');
 const movieInput = document.getElementById('movieInput');
 const searchBtn = document.getElementById('searchBtn');
 const sizeFilter = document.getElementById('sizeFilter');
@@ -27,6 +28,39 @@ let currentMovieMediaType = null; // movie veya tv (TMDB için)
 let loadedImageUrls = new Set(); // Yüklenen görsel URL'lerini takip et (tekrar önleme)
 let activeSource = 'imdb'; // Varsayılan kaynak IMDb
 let progressInterval = null; // Progress bar interval referansı
+
+// ============================================
+// AUTH - Logout Function
+// ============================================
+logoutBtn.addEventListener('click', async () => {
+    if (confirm('Oturumu kapatmak istediğinize emin misiniz?')) {
+        try {
+            const sessionToken = localStorage.getItem('auth_session');
+            
+            // Server'a logout request gönder
+            await fetch('/auth/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionToken })
+            });
+            
+            // Clear local storage
+            localStorage.removeItem('auth_session');
+            
+            // Clear cookie
+            document.cookie = 'sessionToken=; path=/; max-age=0';
+            
+            // Redirect to login
+            window.location.href = '/auth/login.html';
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Force logout even if request fails
+            localStorage.removeItem('auth_session');
+            document.cookie = 'sessionToken=; path=/; max-age=0';
+            window.location.href = '/auth/login.html';
+        }
+    }
+});
 
 // Event Listeners
 searchBtn.addEventListener('click', handleSearch);

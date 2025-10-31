@@ -1,10 +1,13 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { searchMoviesAPI, downloadBannersByMovieId, loadMoreImages } from './banner-downloader-api.js';
 import { searchMoviesTMDB, getMovieImagesTMDB, loadMoreImagesTMDB, getPopularMoviesTMDB, getPopularTVTMDB } from './tmdb-api.js';
 import { getCacheStats, clearCache } from './cache.js';
+import authRoutes from './auth/auth-routes.js';
+import { securityHeaders, corsMiddleware, rateLimiter, requireAuth } from './auth/auth-middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,8 +15,25 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3000;
 
+// Middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(securityHeaders);
+
+// Static files - auth folder public erişim için
+app.use('/auth', express.static(path.join(__dirname, 'auth')));
 app.use(express.static('resources/css'));
+
+// Auth routes with rate limiting
+app.use('/auth', corsMiddleware);
+app.use('/auth/login', rateLimiter.middleware(5, 15 * 60 * 1000));
+app.use('/auth', authRoutes);
+
+// Ana sayfa - AUTH GEREKTİRİR
+app.get('/', requireAuth, (req, res) => {
+    res.sendFile(path.join(__dirname, 'resources/css/index.html'));
+});
 
 // Cache yönetim sayfası
 app.get('/clear-cache', (req, res) => {

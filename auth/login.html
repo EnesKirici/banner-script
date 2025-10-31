@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Güvenli Giriş Sistemi">
+    <title>Giriş Yap - Banner Script</title>
+    <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="animated-background">
+        <div class="gradient-sphere sphere-1"></div>
+        <div class="gradient-sphere sphere-2"></div>
+        <div class="gradient-sphere sphere-3"></div>
+    </div>
+
+    <!-- Particle Effect -->
+    <canvas id="particles"></canvas>
+
+    <!-- Main Container -->
+    <div class="login-container">
+        <!-- Left Side - Branding -->
+        <div class="login-left">
+            <div class="logo-container">
+                <div class="logo-circle">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h1 class="brand-title">Banner Script</h1>
+            </div>
+
+            <div class="feature-list">
+                <div class="feature-item">
+                    <i class="fas fa-clock"></i>
+                    <div>
+                        <h3>Oturum Yönetimi</h3>
+                        <p>Otomatik oturum kontrolü</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-user-check"></i>
+                    <div>
+                        <h3>Beni Hatırla</h3>
+                        <p>30 gün boyunca otomatik giriş</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Side - Login Form -->
+        <div class="login-right">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2>Hoş Geldiniz</h2>
+                    <p>Devam etmek için giriş yapın</p>
+                </div>
+
+                <!-- Alert Messages -->
+                <div id="alert-container"></div>
+
+                <!-- Login Form -->
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fas fa-user"></i>
+                            Kullanıcı Adı
+                        </label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="text" 
+                                id="username" 
+                                name="username" 
+                                placeholder="Kullanıcı adınızı girin"
+                                autocomplete="username"
+                                required
+                            >
+                            <span class="input-icon">
+                                <i class="fas fa-user-circle"></i>
+                            </span>
+                        </div>
+                        <span class="error-message" id="username-error"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">
+                            <i class="fas fa-lock"></i>
+                            Şifre
+                        </label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="password" 
+                                id="password" 
+                                name="password" 
+                                placeholder="Şifrenizi girin"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <span class="input-icon">
+                                <i class="fas fa-key"></i>
+                            </span>
+                            <button type="button" class="toggle-password" id="toggle-password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <span class="error-message" id="password-error"></span>
+                    </div>
+
+                    <!-- "Beni Hatırla" özelliği devre dışı bırakıldı -->
+                    <div class="form-options">
+                        <div style="color:var(--text-muted); font-size:0.9rem">Beni Hatırla özelliği devre dışı bırakıldı</div>
+                    </div>
+
+                    <button type="submit" class="btn-login" id="login-btn">
+                        <span class="btn-text">Giriş Yap</span>
+                        <span class="btn-loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            Giriş yapılıyor...
+                        </span>
+                    </button>
+
+                    <!-- Loading Progress -->
+                    <div class="login-progress">
+                        <div class="progress-bar" id="progress-bar"></div>
+                    </div>
+                </form>
+
+                <!-- Footer -->
+                <div class="card-footer">
+                    <!-- <div class="security-info">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Güvenli bağlantı aktif</span>
+                    </div> -->
+                    <div class="timestamp" id="timestamp"></div>
+                </div>
+            </div>
+
+            <!-- Stats Cards
+            <div class="stats-container">
+                <div class="stat-card">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Güvenli</span>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-bolt"></i>
+                    <span>Hızlı</span>
+                </div>
+                <div class="stat-card">
+                    <i class="fas fa-star"></i>
+                    <span>Modern</span>
+                </div>
+            </div> -->
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-container"></div>
+
+    <script src="login.js"></script>
+</body>
+</html>
